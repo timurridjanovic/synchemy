@@ -1,4 +1,5 @@
 import { v4 as uuid } from 'uuid'
+import { debounce, throttle } from 'lodash'
 
 const messagingManager = {
   client: null,
@@ -111,7 +112,20 @@ class SynchemyClient {
     callListeners(messagingManager.listeners, state, this.store, this.asyncActions)
   }
 
-  registerAction (actionName, action) {
+  registerAction (actionName, action, options = {}) {
+    const getAction = (action, options) => {
+      if (options.debounce) {
+        return debounce(action, options.debounce)
+      }
+
+      if (options.throttle) {
+        return throttle(action, options.throttle)
+      }
+
+      return action
+    }
+
+    const newAction = getAction(action, options)
     const methodName = actionName.split('_').map((word, index) => {
       if (index === 0) {
         return word.toLowerCase()
@@ -133,7 +147,7 @@ class SynchemyClient {
       callListeners(messagingManager.listeners, {
         [`${methodName}Loading`]: true
       }, this.store, this.asyncActions)
-      await action(...args)
+      await newAction(...args)
       this.asyncActions[methodName] = {
         ...this.asyncActions[methodName],
         loading: false
