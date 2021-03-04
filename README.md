@@ -44,7 +44,11 @@ import { synchemyClient as synchemy } from 'synchemy';
 
 const registerActions = () => {
   synchemy.registerAction('GET_TODOS', async () => {
-    await synchemy.send({ type: 'GET_TODOS' });
+    // sent messages receive a response from the server.
+    // The store will be automatically updated with props from the 
+    // response, unless you pass in { updateStore: false } as an option.
+    // ex: const response = await synchemy.send({ type: 'GET_TODOS' }, { updateStore: false });
+    const response = await synchemy.send({ type: 'GET_TODOS' });
   });
 };
 
