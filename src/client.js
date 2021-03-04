@@ -53,7 +53,18 @@ class SynchemyClient {
       }
 
       messagingManager.client.onerror = error => {
-        console.log('ER: ', error)
+        console.log('ERROR: ', error)
+      }
+
+      messagingManager.client.onclose = event => {
+        console.log('EVENT: ', event)
+        if (event.code !== 1000) {
+          // Error code 1000 means that the connection was closed normally.
+          // Try to reconnect.
+          if (!navigator.onLine) {
+            reject(new Error('You are offline. Please connect to the Internet and try again.'))
+          }
+        }
       }
 
       messagingManager.client.onopen = () => {
