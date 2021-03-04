@@ -13,6 +13,23 @@ class SynchemyServer {
     server.on('request', app)
 
     ws.on('connection', socket => {
+      const noop = () => {}
+      const heartbeat = () => {
+        this.isAlive = true
+      }
+      const interval = setInterval(() => {
+        ws.clients.forEach((client) => {
+          if (client.isAlive === false) {
+            return client.terminate()
+          }
+
+          client.isAlive = false
+          client.ping(noop)
+        })
+      }, 30000)
+      socket.isAlive = true
+      socket.on('pong', heartbeat)
+
       const socketId = uuid()
       sockets[socketId] = socket
 
@@ -28,6 +45,7 @@ class SynchemyServer {
       })
 
       socket.on('close', function () {
+        clearInterval(interval)
         const { [socketId]: _, ...otherSockets } = sockets
         sockets = otherSockets
       })
