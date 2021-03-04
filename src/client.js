@@ -88,7 +88,6 @@ class SynchemyClient {
     const newSubscribeCallback = (changes, store, loaders) => {
       const mappedProps = mapStateToProps(store, loaders)
       if (containsChange(changes, mappedProps)) {
-        // callback(mappedProps)
         debounceRender(callback, mappedProps)
       }
     }
