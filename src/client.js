@@ -75,10 +75,21 @@ class SynchemyClient {
   }
 
   subscribe (mapStateToProps = state => state, callback) {
+    const debounceRender = (render, mappedProps) => {
+      // If there's a pending render, cancel it
+      if (render.debounce) {
+        window.cancelAnimationFrame(render.debounce)
+      }
+      // Setup the new render to run at the next animation frame
+      render.debounce = window.requestAnimationFrame(() => {
+        render(mappedProps)
+      })
+    }
     const newSubscribeCallback = (changes, store, loaders) => {
       const mappedProps = mapStateToProps(store, loaders)
       if (containsChange(changes, mappedProps)) {
-        callback(mappedProps)
+        // callback(mappedProps)
+        debounceRender(callback, mappedProps)
       }
     }
 
