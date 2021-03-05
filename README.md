@@ -25,7 +25,7 @@ import { synchemyClient as synchemy } from 'synchemy';
 import registerActions from './actions';
 
 const setup = async () => {
-  await synchemy.createConnection({ host: 'ws://localhost:3000' });
+  await synchemy.createConnection({ host: 'ws://localhost:3000' }); // use the same port as your express server
   synchemy.updateStore({ todos: [] });
   registerActions();
   ReactDOM.render(<App />, document.getElementById('app'));
@@ -121,4 +121,5 @@ synchemy.onEvent(async event => {
 
 | Method | Params | Params Example | Return Type | Description | Example |
 | --- | --- | --- | --- | --- | --- |
-| createConnection | { host: string } | { host: 'ws://localhost:3000' } // The port should be the same as your express server | Promise | createConnection is used to establish a websockets connection with the server. | await synchemy.createConnection({ host: 'ws://localhost:3000' }); |
+| createConnection | { host: string } | Promise | createConnection is used to establish a websockets connection with the server. |
+| subscribe | mapStateToProps: (state, loaders) => Props, callback: () => void, shouldUpdate: (prevState, nextState) => boolean | string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. |

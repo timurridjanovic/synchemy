@@ -77,7 +77,9 @@ class SynchemyClient {
     })
   }
 
-  subscribe (mapStateToProps = state => state, callback, store, loaders, shouldUpdate) {
+  subscribe (mapStateToProps = state => state, callback, shouldUpdate) {
+    const store = this.store
+    const loaders = this.asyncActions
     const prevState = mapStateToProps(store, loaders)
     const debounceRender = (render, mappedProps) => {
       // If there's a pending render, cancel it
