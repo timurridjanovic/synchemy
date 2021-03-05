@@ -119,7 +119,7 @@ synchemy.onEvent(async event => {
 ```
 ## synchemyClient methods
 
-| Method | Params | Params Example | Return Type | Description | Example |
-| --- | --- | --- | --- | --- | --- |
-| createConnection | { host: string } | Promise | createConnection is used to establish a websockets connection with the server. |
-| subscribe | mapStateToProps: (state, loaders) => Props, callback: () => void, shouldUpdate: (prevState, nextState) => boolean | string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. |
+| Method | Params | Description |
+| --- | --- | --- |
+| createConnection | (options: { host: string }) => Promise | createConnection is used to establish a websockets connection with the server. |
+| subscribe | (mapStateToProps: (state, loaders) => Props, callback: () => void, shouldUpdate: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. |
