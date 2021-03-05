@@ -8,16 +8,16 @@ const messagingManager = {
   queue: []
 }
 
-const callListeners = (listeners, changes, store, loaders) => {
+const callListeners = (listeners, store, loaders) => {
   Object.values(listeners).forEach(listener => {
-    listener(changes, store, loaders)
+    listener.subscribeCallback(listener.prevState, store, loaders, listener)
   })
 }
 
-const containsChange = (changes, store) => {
-  return Object.entries(changes).reduce((hasChange, change) => {
+const containsChange = (newState, prevState, keysInState) => {
+  return Object.entries(newState).reduce((hasChange, change) => {
     if (hasChange) { return true }
-    if (store[change[0]] !== undefined) {
+    if (keysInState[change[0]] && prevState[change[0]] !== change[1]) {
       return true
     }
 
@@ -46,7 +46,7 @@ class SynchemyClient {
         const { resolve, options } = messagingManager.queue.find(m => m.message.messageId === messageId)
         if (options.updateStore !== false) {
           this.store = { ...this.store, ...result }
-          callListeners(messagingManager.listeners, result, this.store, this.asyncActions)
+          callListeners(messagingManager.listeners, this.store, this.asyncActions)
         }
 
         resolve(result)
@@ -74,7 +74,12 @@ class SynchemyClient {
     })
   }
 
-  subscribe (mapStateToProps = state => state, callback) {
+  subscribe (mapStateToProps = state => state, callback, store, loaders) {
+    const prevState = mapStateToProps(store, loaders)
+    const keysInState = Object.keys(prevState).reduce((keys, key) => {
+      keys[key] = true
+      return keys
+    }, {})
     const debounceRender = (render, mappedProps) => {
       // If there's a pending render, cancel it
       if (render.debounce) {
@@ -85,15 +90,17 @@ class SynchemyClient {
         render(mappedProps)
       })
     }
-    const newSubscribeCallback = (changes, store, loaders) => {
-      const mappedProps = mapStateToProps(store, loaders)
-      if (containsChange(changes, mappedProps)) {
-        debounceRender(callback, mappedProps)
+    const subscribeCallback = (prevState, store, loaders, listener) => {
+      const newState = mapStateToProps(store, loaders)
+      if (containsChange(newState, prevState, listener.keysInState)) {
+        listener.prevState = newState
+        debounceRender(callback, newState)
       }
     }
 
+    const listener = { subscribeCallback, prevState, keysInState }
     const listenerId = uuid()
-    messagingManager.listeners[listenerId] = newSubscribeCallback
+    messagingManager.listeners[listenerId] = listener
     return listenerId
   }
 
@@ -119,7 +126,7 @@ class SynchemyClient {
 
   updateStore (state) {
     this.store = { ...this.store, ...state }
-    callListeners(messagingManager.listeners, state, this.store, this.asyncActions)
+    callListeners(messagingManager.listeners, this.store, this.asyncActions)
   }
 
   registerAction (actionName, action, options = {}) {
@@ -154,17 +161,13 @@ class SynchemyClient {
         ...this.asyncActions[methodName],
         loading: true
       }
-      callListeners(messagingManager.listeners, {
-        [`${methodName}Loading`]: true
-      }, this.store, this.asyncActions)
+      callListeners(messagingManager.listeners, this.store, this.asyncActions)
       await newAction(...args)
       this.asyncActions[methodName] = {
         ...this.asyncActions[methodName],
         loading: false
       }
-      callListeners(messagingManager.listeners, {
-        [`${methodName}Loading`]: false
-      }, this.store, this.asyncActions)
+      callListeners(messagingManager.listeners, this.store, this.asyncActions)
     }
   }
 }

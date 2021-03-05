@@ -8,7 +8,7 @@ const useStore = synchemy => (mapStateToProps) => {
       setStoreState(state)
     }
 
-    const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback)
+    const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, synchemy.store, synchemy.asyncActions)
 
     return () => {
       synchemy.unsubscribe(listenerId)
