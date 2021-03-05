@@ -5,24 +5,24 @@ const messagingManager = {
   client: null,
   host: null,
   listeners: {},
-  queue: []
+  queue: [],
+  asyncActions: {}
 }
 
-const callListeners = (listeners, store, loaders) => {
+const callListeners = (listeners, changes, store, loaders) => {
   Object.values(listeners).forEach(listener => {
-    listener.subscribeCallback(listener.prevState, store, loaders, listener)
+    listener.subscribeCallback(listener.prevState, changes, store, loaders, listener)
   })
 }
 
-const containsChange = (newState, prevState, keysInState) => {
-  return Object.entries(newState).reduce((hasChange, change) => {
-    if (hasChange) { return true }
-    if (keysInState[change[0]] && prevState[change[0]] !== change[1]) {
+const containsChange = (changes, prevState) => {
+  for (const change of Object.entries(changes)) {
+    if (change[1] !== undefined && prevState[change[0]] !== change[1]) {
       return true
     }
+  }
 
-    return false
-  }, false)
+  return false
 }
 
 const isOpen = ws => {
@@ -44,12 +44,17 @@ class SynchemyClient {
         const response = JSON.parse(data)
         const { result, messageId } = response
         const { resolve, options } = messagingManager.queue.find(m => m.message.messageId === messageId)
-        if (options.updateStore !== false) {
-          this.store = { ...this.store, ...result }
-          callListeners(messagingManager.listeners, this.store, this.asyncActions)
+        const { updateStore, processResponse } = options
+        const newResult = processResponse ? processResponse(result) : result
+        if (updateStore !== false) {
+          this.store = { ...this.store, ...newResult }
+          callListeners(messagingManager.listeners, {
+            store: newResult,
+            loaders: messagingManager.asyncActions
+          }, this.store, this.asyncActions)
         }
 
-        resolve(result)
+        resolve(newResult)
         messagingManager.queue = messagingManager.queue.filter(m => m.message.messageId !== messageId)
       }
 
@@ -58,7 +63,6 @@ class SynchemyClient {
       }
 
       messagingManager.client.onclose = event => {
-        console.log('EVENT: ', event)
         if (event.code !== 1000) {
           // Error code 1000 means that the connection was closed normally.
           if (!navigator.onLine) {
@@ -73,12 +77,8 @@ class SynchemyClient {
     })
   }
 
-  subscribe (mapStateToProps = state => state, callback, store, loaders) {
+  subscribe (mapStateToProps = state => state, callback, store, loaders, shouldUpdate) {
     const prevState = mapStateToProps(store, loaders)
-    const keysInState = Object.keys(prevState).reduce((keys, key) => {
-      keys[key] = true
-      return keys
-    }, {})
     const debounceRender = (render, mappedProps) => {
       // If there's a pending render, cancel it
       if (render.debounce) {
@@ -89,15 +89,25 @@ class SynchemyClient {
         render(mappedProps)
       })
     }
-    const subscribeCallback = (prevState, store, loaders, listener) => {
-      const newState = mapStateToProps(store, loaders)
-      if (containsChange(newState, prevState, listener.keysInState)) {
+    const subscribeCallback = (prevState, changes, store, loaders, listener) => {
+      if (listener.shouldUpdate) {
+        const newState = mapStateToProps(store, loaders)
+        if (listener.shouldUpdate(prevState, newState)) {
+          listener.prevState = newState
+          return debounceRender(callback, newState)
+        }
+        return
+      }
+
+      const newChanges = mapStateToProps(changes.store, changes.loaders)
+      if (containsChange(newChanges, prevState)) {
+        const newState = mapStateToProps(store, loaders)
         listener.prevState = newState
-        debounceRender(callback, newState)
+        return debounceRender(callback, newState)
       }
     }
 
-    const listener = { subscribeCallback, prevState, keysInState }
+    const listener = { subscribeCallback, prevState, shouldUpdate }
     const listenerId = uuid()
     messagingManager.listeners[listenerId] = listener
     return listenerId
@@ -134,10 +144,17 @@ class SynchemyClient {
     if (typeof state === 'function') {
       const newState = state(this.store)
       this.store = { ...this.store, ...newState }
-      callListeners(messagingManager.listeners, this.store, this.asyncActions)
+
+      callListeners(messagingManager.listeners, {
+        store: newState, loaders: messagingManager.asyncActions
+      }, this.store, this.asyncActions)
     } else {
       this.store = { ...this.store, ...state }
-      callListeners(messagingManager.listeners, this.store, this.asyncActions)
+
+      callListeners(messagingManager.listeners, {
+        store: state,
+        loaders: messagingManager.asyncActions
+      }, this.store, this.asyncActions)
     }
   }
 
@@ -163,6 +180,7 @@ class SynchemyClient {
       return `${word.substring(0, 1).toUpperCase()}${word.substring(1).toLowerCase()}`
     }).join('')
 
+    messagingManager.asyncActions[methodName] = {}
     this.asyncActions[methodName] = {
       name: actionName,
       loading: false
@@ -173,13 +191,27 @@ class SynchemyClient {
         ...this.asyncActions[methodName],
         loading: true
       }
-      callListeners(messagingManager.listeners, this.store, this.asyncActions)
+      const changes = {
+        store: {},
+        loaders: {
+          ...messagingManager.asyncActions,
+          [methodName]: { loading: true }
+        }
+      }
+      callListeners(messagingManager.listeners, changes, this.store, this.asyncActions)
       await newAction(...args)
       this.asyncActions[methodName] = {
         ...this.asyncActions[methodName],
         loading: false
       }
-      callListeners(messagingManager.listeners, this.store, this.asyncActions)
+      const newChanges = {
+        store: {},
+        loaders: {
+          ...messagingManager.asyncActions,
+          [methodName]: { loading: false }
+        }
+      }
+      callListeners(messagingManager.listeners, newChanges, this.store, this.asyncActions)
     }
   }
 }
