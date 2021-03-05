@@ -117,3 +117,8 @@ synchemy.onEvent(async event => {
   return event;
 });
 ```
+## synchemyClient methods
+
+| Method | Params | Params Example | Return Type | Description | Example |
+| --- | --- | --- | --- |
+| createConnection | { host: string } | { host: 'ws://localhost:3000' } // The port should be the same as your express server | Constructor function that defines the layout (height / width) of each element | Promise | createConnection is used to establish a websockets connection with the server. | await synchemy.createConnection({ host: 'ws://localhost:3000' }); |
