@@ -61,7 +61,6 @@ class SynchemyClient {
         console.log('EVENT: ', event)
         if (event.code !== 1000) {
           // Error code 1000 means that the connection was closed normally.
-          // Try to reconnect.
           if (!navigator.onLine) {
             reject(new Error('You are offline. Please connect to the Internet and try again.'))
           }
@@ -111,7 +110,14 @@ class SynchemyClient {
 
   send (message, options = {}) {
     return new Promise((resolve, reject) => {
-      const newMessage = { ...message, messageId: uuid() }
+      const getMessage = message => {
+        if (typeof message === 'function') {
+          return message(this.store)
+        }
+
+        return message
+      }
+      const newMessage = { ...getMessage(message), messageId: uuid() }
       messagingManager.queue.push({ message: newMessage, resolve, options })
       if (isOpen(messagingManager.client)) {
         messagingManager.client.send(JSON.stringify(newMessage))
@@ -125,8 +131,14 @@ class SynchemyClient {
   }
 
   updateStore (state) {
-    this.store = { ...this.store, ...state }
-    callListeners(messagingManager.listeners, this.store, this.asyncActions)
+    if (typeof state === 'function') {
+      const newState = state(this.store)
+      this.store = { ...this.store, ...newState }
+      callListeners(messagingManager.listeners, this.store, this.asyncActions)
+    } else {
+      this.store = { ...this.store, ...state }
+      callListeners(messagingManager.listeners, this.store, this.asyncActions)
+    }
   }
 
   registerAction (actionName, action, options = {}) {
