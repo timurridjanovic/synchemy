@@ -1,6 +1,6 @@
 {
   "name": "@synchemy/use-store",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "useStore hook to use synchemy with react",
   "main": "build/index.js",
   "scripts": {
@@ -10,6 +10,10 @@
   },
   "author": "Timur Ridjanovic",
   "license": "ISC",
+  "repository": {
+    "type" : "git",
+    "url" : "https://github.com/timurridjanovic/synchemy/tree/main/src/useStore"
+  },
   "peerDependencies": {
     "react": ">=16.8.0"
   },
