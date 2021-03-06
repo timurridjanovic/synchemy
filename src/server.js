@@ -5,9 +5,10 @@ let sockets = {}
 let onEventCallback
 
 class SynchemyServer {
-  createConnection ({ app, server }) {
+  createConnection ({ app, server, options = {} }) {
     const ws = new WebSocket.Server({
-      server
+      server,
+      ...options
     })
 
     server.on('request', app)
