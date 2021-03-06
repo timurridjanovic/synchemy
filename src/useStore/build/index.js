@@ -39,4 +39,4 @@ var useStore = function useStore(synchemy) {
 var _default = useStore;
 exports["default"] = _default;
 module.exports = exports.default;
-//# sourceMappingURL=useStore.js.map
+//# sourceMappingURL=index.js.map

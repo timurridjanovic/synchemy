@@ -1,7 +1,10 @@
 # Synchemy
 
 ## Install
-`npm install synchemy --save`
+`npm install @synchemy/core --save`
+
+## Install synchemy useStore hook to use with react
+`npm install @synchemy/use-store --save`
 
 ## Description
 
@@ -26,7 +29,7 @@ This is the client side setup.
 import React from 'react';
 import ReactDOM from 'react-dom';
 import App from './app';
-import { synchemyClient as synchemy } from 'synchemy';
+import { synchemyClient as synchemy } from '@synchemy/core';
 import registerActions from './actions';
 
 const setup = async () => {
@@ -45,7 +48,7 @@ This will automatically create a `synchemy.asyncActions.getTodos.loading`
 flag that will be set to true in the beginning of the action and set to 
 false at the end of the action.
 ```js
-import { synchemyClient as synchemy } from 'synchemy';
+import { synchemyClient as synchemy } from '@synchemy/core';
 
 const registerActions = () => {
   synchemy.registerAction('GET_TODOS', async () => {
@@ -66,7 +69,8 @@ change. Your component will rerender only if the changes are in any
 of the properties that you return from the callback.
 ```js
 import React, { useEffect } from 'react';
-import { synchemyClient as synchemy, useStore } from 'synchemy';
+import { synchemyClient as synchemy } from '@synchemy/core';
+import useStore from '@synchemy/use-store';
 
 const App = () => {
   const store = useStore(synchemy)((state, loaders) => {
@@ -107,7 +111,7 @@ on the client side, unless you send the event using
 ```js
 const express = require('express');
 const server = require('http').createServer();
-const { synchemyServer: synchemy } = require('synchemy');
+const { synchemyServer: synchemy } = require('@synchemy/core');
 
 var app = express();
 
