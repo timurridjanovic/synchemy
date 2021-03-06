@@ -120,7 +120,7 @@ synchemy.onEvent(async event => {
 ## synchemyClient methods
 
 | Method | Params | Description | Example |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | createConnection | (options: { host: string }) => Promise | createConnection is used to establish a websockets connection with the server. | await synchemy.createConnection({ host: 'ws://localhost:3000' }) |
 | subscribe | (mapStateToProps?: (state: State, loaders: Loaders) => props: Props, callback: () => void, shouldUpdate?: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. | const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, shouldUpdate) |
 | unsubscribe | (listenerId: string) => void | unsubscribe is used to remove the callback listener you set with the subscribe method. Use the listenerId returned by the subscribe method in the param. | synchemy.unsubscribe(listenerId) |
@@ -139,6 +139,6 @@ synchemy.onEvent(async event => {
 ## synchemyServer methods
 
 | Method | Params | Description | Example |
-| --- | --- | --- |
+| --- | --- | --- | --- |
 | createConnection | (options: { app: ExpressApp, server: ExpressServer, options: WebSocketsOptions }) => void | createConnection is used to establish the WebSocket server | synchemy.createConnection({ app, server }); |
 | onEvent | (event: { type: string, [key: string]: any }) => { [key: string]: any } | onEvent is used to set a callback that will receive all the messages sent from the client. The properties returned in the callback will then be used to update the store, unless the message was sent with the option { updateStore: false } | synchemy.onEvent(event => { if (event.type === 'GET_TODOS') { return { todos } } return event }) |
