@@ -121,24 +121,24 @@ synchemy.onEvent(async event => {
 
 | Method | Params | Description | Example |
 | --- | --- | --- | --- |
-| createConnection | (options: { host: string }) => Promise | createConnection is used to establish a websockets connection with the server. | await synchemy.createConnection({ host: 'ws://localhost:3000' }) |
-| subscribe | (mapStateToProps?: (state: State, loaders: Loaders) => props: Props, callback: () => void, shouldUpdate?: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. | const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, shouldUpdate) |
-| unsubscribe | (listenerId: string) => void | unsubscribe is used to remove the callback listener you set with the subscribe method. Use the listenerId returned by the subscribe method in the param. | synchemy.unsubscribe(listenerId) |
-| send | (message: { type: string, [key: string]: any } \| (store: Store) => Message, options?: { updateStore?: boolean, processResponse: (response: Response) => processedResponse: Response) => Promise | send is used to send messages to the server using websockets. The server will send back a response and update the store automatically unless updateStore is set to false. You can also process the server response before updating the store using the processResponse function. | await synchemy.send({ type: 'GET_TODO', todoId }, { updateStore: false, processResponse }) |
-| updateStore | (state: State \| (store: Store) => State) => void | updateStore is used to update the store directly on the client side without sending anything to the server. | synchemy.updateStore(store => ({ counter: store.counter + 1 })) |
-| registerAction | (actionName: string, action: (...args: any) => void, options?: { debounce?: boolean, throttle?: boolean }) => void | registerAction is used to register an action that you can dispatch from your components. | synchemy.registerAction('INCREMENT_COUNTER', async () => { ... }, { debounce: 500 }) |
+| createConnection | (options: { host: string }) => Promise | createConnection is used to establish a websockets connection with the server. | `await synchemy.createConnection({ host: 'ws://localhost:3000' })` |
+| subscribe | (mapStateToProps?: (state: State, loaders: Loaders) => props: Props, callback: () => void, shouldUpdate?: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. | `const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, shouldUpdate)` |
+| unsubscribe | (listenerId: string) => void | unsubscribe is used to remove the callback listener you set with the subscribe method. Use the listenerId returned by the subscribe method in the param. | `synchemy.unsubscribe(listenerId)` |
+| send | (message: { type: string, [key: string]: any } \| (store: Store) => Message, options?: { updateStore?: boolean, processResponse: (response: Response) => processedResponse: Response) => Promise | send is used to send messages to the server using websockets. The server will send back a response and update the store automatically unless updateStore is set to false. You can also process the server response before updating the store using the processResponse function. | `await synchemy.send({ type: 'GET_TODO', todoId }, { updateStore: false, processResponse })` |
+| updateStore | (state: State \| (store: Store) => State) => void | updateStore is used to update the store directly on the client side without sending anything to the server. | `synchemy.updateStore(store => ({ counter: store.counter + 1 }))` |
+| registerAction | (actionName: string, action: (...args: any) => void, options?: { debounce?: boolean, throttle?: boolean }) => void | registerAction is used to register an action that you can dispatch from your components. | `synchemy.registerAction('INCREMENT_COUNTER', async () => { ... }, { debounce: 500 })` |
 
 ## synchemyClient properties
 
 | Properties | Description | Example |
 | --- | --- | --- |
-| actions | actions contains all the registered actions | synchemy.actions.getTodos() |
-| asyncActions | asyncActions contains the loading flags for all the actions | synchemy.asyncActions.getTodos.loading |
-| store | The store contains your application state | synchemy.store.todos |
+| actions | actions contains all the registered actions | `synchemy.actions.getTodos()` |
+| asyncActions | asyncActions contains the loading flags for all the actions | `synchemy.asyncActions.getTodos.loading` |
+| store | The store contains your application state | `synchemy.store.todos` |
 
 ## synchemyServer methods
 
 | Method | Params | Description | Example |
 | --- | --- | --- | --- |
-| createConnection | (options: { app: ExpressApp, server: ExpressServer, options: WebSocketsOptions }) => void | createConnection is used to establish the WebSocket server | synchemy.createConnection({ app, server }); |
-| onEvent | (event: { type: string, [key: string]: any }) => { [key: string]: any } | onEvent is used to set a callback that will receive all the messages sent from the client. The properties returned in the callback will then be used to update the store, unless the message was sent with the option { updateStore: false } | synchemy.onEvent(event => { if (event.type === 'GET_TODOS') { return { todos } } return event }) |
+| createConnection | (options: { app: ExpressApp, server: ExpressServer, options: WebSocketsOptions }) => void | createConnection is used to establish the WebSocket server | `synchemy.createConnection({ app, server })` |
+| onEvent | (event: { type: string, [key: string]: any }) => { [key: string]: any } | onEvent is used to set a callback that will receive all the messages sent from the client. The properties returned in the callback will then be used to update the store, unless the message was sent with the option { updateStore: false } | `synchemy.onEvent(event => { if (event.type === 'GET_TODOS') { return { todos } } return event })` |
