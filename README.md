@@ -1,8 +1,13 @@
 # Synchemy
 
+## Install
+`npm install synchemy --save`
+
+## Description
+
 Synchemy is  a state management library that keeps the client side store 
 automatically in sync with the server using websockets. 
-This library is used both on the client side and on the server side 
+This library is used both on the client side with react and on the server side 
 using nodejs and expressjs.
 
 On the server side, this library uses an evented approach to receive

@@ -1,8 +1,8 @@
 {
   "name": "synchemy",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "State management library that makes it easy to sync between client and server through websockets",
-  "main": "index.js",
+  "main": "build/index.js",
   "scripts": {
     "lint": "standard --fix",
     "build": "npx babel -d ./build ./src -s",
@@ -10,7 +10,11 @@
   },
   "author": "Timur Ridjanovic",
   "license": "ISC",
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
   "dependencies": {
+    "@babel/runtime": "^7.13.9",
     "lodash": "^4.17.21",
     "uuid": "^8.3.2",
     "ws": "^7.4.3"
@@ -24,6 +28,8 @@
     "standard": "^16.0.3"
   },
   "standard": {
-    "globals": ["WebSocket"]
+    "globals": [
+      "WebSocket"
+    ]
   }
 }
