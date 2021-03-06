@@ -34,9 +34,9 @@ const setup = async () => {
 setup();
 ```
 
-Here we register our actions. In this specific case, we register a GET_TODOS action.
-The action can get called by invoking synchemy.actions.getTodos().
-This will automatically create a synchemy.asyncActions.getTodos.loading 
+Here we register our actions. In this specific case, we register a `GET_TODOS` action.
+The action can get called by invoking `synchemy.actions.getTodos()`.
+This will automatically create a `synchemy.asyncActions.getTodos.loading` 
 flag that will be set to true in the beginning of the action and set to 
 false at the end of the action.
 ```js
@@ -95,10 +95,10 @@ export default App;
 
 This is the server side setup.
 Whenever you send an event from the client side using
-synchemy.send({ type: 'GET_TODOS' }), the onEvent callback will get
+`synchemy.send({ type: 'GET_TODOS' })`, the onEvent callback will get
 called. Whatever you return will then automatically update your store
 on the client side, unless you send the event using
-synchemy.send({ type: 'GET_TODOS' }, { updateStore: false })
+`synchemy.send({ type: 'GET_TODOS' }, { updateStore: false })`
 ```js
 const express = require('express');
 const server = require('http').createServer();
