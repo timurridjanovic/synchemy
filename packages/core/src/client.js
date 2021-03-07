@@ -49,21 +49,21 @@ class SynchemyClient {
     asyncActions: {}
   }
 
-  constructor ({ host, protocols = [], actions = {} }) {
+  constructor ({ host, actions = {} }) {
     if (!host) {
       throw new Error('You must provide a host to connect to.')
     }
 
-    this.createConnection({ host, protocols })
+    this.createConnection({ host })
 
     Object.values(actions).forEach(action => {
       this.registerAction(action.name, action.action, action.options)
     })
   }
 
-  createConnection ({ host, protocols = [] }) {
+  createConnection ({ host }) {
     this.#messagingManager.host = host
-    this.#messagingManager.client = new WebSocket(host, protocols)
+    this.#messagingManager.client = new WebSocket(host)
     this.#messagingManager.client.onmessage = ({ data }) => {
       const response = JSON.parse(data)
       const { message, messageId } = response

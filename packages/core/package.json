@@ -38,5 +38,9 @@
     "ignore": [
       "/src/useStore/**/*.js"
     ]
+  },
+  "optionalDependencies": {
+    "bufferutil": "^4.0.3",
+    "utf-8-validate": "^5.0.4"
   }
 }
