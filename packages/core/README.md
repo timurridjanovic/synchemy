@@ -79,7 +79,7 @@ const registerActions = () => {
 export default registerActions;
 ```
 
-Debounce or throttle options would be set this way.
+Debounce or throttle options can be set this way.
 ```js
   synchemy.registerAction('GET_TODOS', async () => {
     const response = await synchemy.send({ type: 'GET_TODOS' });
