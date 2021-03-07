@@ -80,8 +80,6 @@ var SynchemyClient = /*#__PURE__*/function () {
     var _this = this;
 
     var host = _ref.host,
-        _ref$protocols = _ref.protocols,
-        protocols = _ref$protocols === void 0 ? [] : _ref$protocols,
         _ref$actions = _ref.actions,
         actions = _ref$actions === void 0 ? {} : _ref$actions;
     (0, _classCallCheck2["default"])(this, SynchemyClient);
@@ -106,8 +104,7 @@ var SynchemyClient = /*#__PURE__*/function () {
     }
 
     this.createConnection({
-      host: host,
-      protocols: protocols
+      host: host
     });
     Object.values(actions).forEach(function (action) {
       _this.registerAction(action.name, action.action, action.options);
@@ -119,11 +116,9 @@ var SynchemyClient = /*#__PURE__*/function () {
     value: function createConnection(_ref2) {
       var _this2 = this;
 
-      var host = _ref2.host,
-          _ref2$protocols = _ref2.protocols,
-          protocols = _ref2$protocols === void 0 ? [] : _ref2$protocols;
+      var host = _ref2.host;
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).host = host;
-      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client = new WebSocket(host, protocols);
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client = new WebSocket(host);
 
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onmessage = function (_ref3) {
         var data = _ref3.data;
