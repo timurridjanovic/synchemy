@@ -51,3 +51,22 @@ const App = () => {
 
 export default App;
 ```
+
+Rerenders are base on the properties that you return from the useStore callback.
+However, only a shallow comparison is made between the previous state and the next
+state to determine whether a change has occured. If you want more customization on whether
+an update should occur, you can provide a shouldUpdate callback.
+
+```js
+const store = useStore(synchemy)((state, loaders) => {
+  return {
+    todos: state.todos,
+  }
+}, (prevState, nextState) => {
+  if (prevState.todos.length !== nextState.todos.length) {
+    return true
+  }
+
+  return false
+});
+```
