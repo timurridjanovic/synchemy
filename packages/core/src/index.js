@@ -1,7 +1,7 @@
-import synchemyClient from './client'
-import synchemyServer from './server'
+import SynchemyClient from './client'
+import SynchemyServer from './server'
 
 export default {
-  synchemyClient,
-  synchemyServer
+  SynchemyClient,
+  SynchemyServer
 }

@@ -1,18 +1,26 @@
-# Synchemy useStore
+# Synchemy
 
 ## Install
 `npm install @synchemy/use-store --save`
 
+## Package versions
+
+| Name | Latest Version |
+| --- | --- |
+| [@synchemy/use-store](.) | [![badge](https://img.shields.io/npm/v/@synchemy/use-store.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/use-store) |
+
 ## Description
-This is a react hook to have access to the synchemy store.
 
 The useStore hook is used in combination with react. The useStore 
 callback will be invoked anytime there is a store change or a loading flag
 change. Your component will rerender only if the changes are in any
 of the properties that you return from the callback.
+
 ```js
+// app.js
 import React, { useEffect } from 'react';
-import { synchemyClient as synchemy, useStore } from 'synchemy';
+import synchemy from './synchemy';
+import useStore from '@synchemy/use-store'
 
 const App = () => {
   const store = useStore(synchemy)((state, loaders) => {

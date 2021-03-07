@@ -3,8 +3,17 @@
 ## Install
 `npm install @synchemy/core --save`
 
+## Package version
+
+| Name | Latest Version |
+| --- | --- |
+| [@synchemy/core](.) | [![badge](https://img.shields.io/npm/v/@synchemy/core.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/core) |
+
 ## Description
-Synchemy is  a state management library that keeps the client side store 
+
+Why Synchemy?
+
+Synchemy is a state management library that keeps the client side store 
 automatically in sync with the server using websockets. 
 This library is used both on the client side with react and on the server side 
 using nodejs and expressjs.
@@ -16,26 +25,38 @@ This eliminates the need for a REST api and makes it quite easy to
 keep data in sync with the client.
 
 On the client side, you can register actions that will automatically
-generate loading flags for each action. If used with react, you
-can use the useStore hook to respond to any store or loading flag 
-changes.
+generate loading flags for each action. Any time you call an action, a loading flag 
+is automatically created. It is set to true at the beginning of the action and set 
+to false at the end of the action. If used with react, you can use the useStore hook 
+to subscribe to any store or loading flag changes. Actions also come with a debounce 
+or throttle option in case you need to debounce or throttle your actions.
 
-This is the client side setup.
+# SynchemyClient setup
+
+First, let's create the synchemy instance and keep it in a separate file for easy imports.
 ```js
-import React from 'react';
-import ReactDOM from 'react-dom';
-import App from './app';
-import { synchemyClient as synchemy } from '@synchemy/core';
+// synchemy.js
+import { SynchemyClient } from '@synchemy/core';
+
+const synchemy = new SynchemyClient({
+  host: 'ws://localhost:3000'
+})
+
+export default synchemy
+```
+
+Next, you can initialize the store with some initial data and register your actions.
+```js
+// index.js
+import React from "react";
+import ReactDOM from "react-dom";
+import Home from "./pages/home";
+import synchemy from './synchemy';
 import registerActions from './actions';
 
-const setup = async () => {
-  await synchemy.createConnection({ host: 'ws://localhost:3000' }); // use the same port as your express server
-  synchemy.updateStore({ todos: [] });
-  registerActions();
-  ReactDOM.render(<App />, document.getElementById('app'));
-};
-
-setup();
+synchemy.updateStore({ counter: 0, todos: [] })
+registerActions();
+ReactDOM.render(<Home />, document.getElementById("app"));
 ```
 
 Here we register our actions. In this specific case, we register a `GET_TODOS` action.
@@ -44,7 +65,8 @@ This will automatically create a `synchemy.asyncActions.getTodos.loading`
 flag that will be set to true in the beginning of the action and set to 
 false at the end of the action.
 ```js
-import { synchemyClient as synchemy } from '@synchemy/core';
+// actions.js
+import synchemy from './synchemy';
 
 const registerActions = () => {
   synchemy.registerAction('GET_TODOS', async () => {
@@ -59,12 +81,35 @@ const registerActions = () => {
 export default registerActions;
 ```
 
-This is the server side setup.
+Debounce or throttle options would be set this way.
+```js
+  synchemy.registerAction('GET_TODOS', async () => {
+    const response = await synchemy.send({ type: 'GET_TODOS' });
+  }, { debounce: 500 });
+```
+
+Alternatively, you can also register your actions directly in the SynchemyClient constructor.
+```js
+const synchemy = new SynchemyClient({
+  host: 'ws://localhost:3000',
+  actions: {
+    getTodos: {
+      name: 'GET_TODOS',
+      action: async () => {},
+      options: { throttle: 500 } // options are optional
+    }
+  }
+})
+```
+
+# SynchemyServer setup
+
 Whenever you send an event from the client side using
-`synchemy.send({ type: 'GET_TODOS' })`, the onEvent callback will get
+`synchemy.send({ type: 'GET_TODOS' })`, the onMessage callback will get
 called. Whatever you return will then automatically update your store
 on the client side, unless you send the event using
-`synchemy.send({ type: 'GET_TODOS' }, { updateStore: false })`
+`synchemy.send({ type: 'GET_TODOS' }, { updateStore: false })`.
+
 ```js
 const express = require('express');
 const server = require('http').createServer();
@@ -73,27 +118,64 @@ const { synchemyServer: synchemy } = require('@synchemy/core');
 var app = express();
 
 synchemy.createConnection({ app, server });
-synchemy.onEvent(async event => {
-  if (event.type === 'GET_TODOS') {
+synchemy.onMessage(async (({ message, socketId }) => {
+  // The socketId can be tracked to send messages to specific clients. All socket ids
+  // are accessible on synchemy.sockets
+
+  if (message.type === 'GET_TODOS') {
     // to whatever you need to do to fetch todos
     const todos = await getTodos()
     return { todos }
   }
 
-  return event;
+  return message;
 });
 ```
+
+You can send messages to all clients...
+
+```js
+synchemy.sendAll(message)
+```
+
+...or to an array of specific clients.
+
+```js
+synchemy.send(socketIds, message)
+```
+
+If you don't want the client side store to update itself automatically when you send a 
+message to the client using `synchemy.sendAll` or `synchemy.send`, you can set a callback
+on the client side to react to messages from the server and perhaps update the store yourself.
+```js
+// this is on the client side
+synchemy.onMessage(message => {
+  // do something
+})
+```
+
+Finally, if you need to do something on socket connection or socket disconnection, you can
+setup these callbacks.
+
+```js
+  synchemy.onSocketConnection(callback)
+  synchemy.onSocketDisconnection(callback)
+```
+
 ## synchemyClient methods
+
 | Method | Params | Description | Example |
 | --- | --- | --- | --- |
 | createConnection | (options: { host: string }) => Promise | createConnection is used to establish a websockets connection with the server. | `await synchemy.createConnection({ host: 'ws://localhost:3000' })` |
 | subscribe | (mapStateToProps?: (state: State, loaders: Loaders) => props: Props, callback: () => void, shouldUpdate?: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. | `const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, shouldUpdate)` |
 | unsubscribe | (listenerId: string) => void | unsubscribe is used to remove the callback listener you set with the subscribe method. Use the listenerId returned by the subscribe method in the param. | `synchemy.unsubscribe(listenerId)` |
+| onMessage | (message: { [key: string]: any } => void | onMessage is used to react to messages sent by the server instead of updating the store automatically. | `synchemy.onMessage(message => {})` |
 | send | (message: { type: string, [key: string]: any } \| (store: Store) => Message, options?: { updateStore?: boolean, processResponse: (response: Response) => processedResponse: Response) => Promise | send is used to send messages to the server using websockets. The server will send back a response and update the store automatically unless updateStore is set to false. You can also process the server response before updating the store using the processResponse function. | `await synchemy.send({ type: 'GET_TODO', todoId }, { updateStore: false, processResponse })` |
 | updateStore | (state: State \| (store: Store) => State) => void | updateStore is used to update the store directly on the client side without sending anything to the server. | `synchemy.updateStore(store => ({ counter: store.counter + 1 }))` |
 | registerAction | (actionName: string, action: (...args: any) => void, options?: { debounce?: boolean, throttle?: boolean }) => void | registerAction is used to register an action that you can dispatch from your components. | `synchemy.registerAction('INCREMENT_COUNTER', async () => { ... }, { debounce: 500 })` |
 
 ## synchemyClient properties
+
 | Properties | Description | Example |
 | --- | --- | --- |
 | actions | actions contains all the registered actions | `synchemy.actions.getTodos()` |
@@ -101,7 +183,17 @@ synchemy.onEvent(async event => {
 | store | The store contains your application state | `synchemy.store.todos` |
 
 ## synchemyServer methods
+
 | Method | Params | Description | Example |
 | --- | --- | --- | --- |
-| createConnection | (options: { app: ExpressApp, server: ExpressServer, options: WebSocketsOptions }) => void | createConnection is used to establish the WebSocket server | `synchemy.createConnection({ app, server })` |
-| onEvent | (event: { type: string, [key: string]: any }) => { [key: string]: any } | onEvent is used to set a callback that will receive all the messages sent from the client. The properties returned in the callback will then be used to update the store, unless the message was sent with the option { updateStore: false } | `synchemy.onEvent(event => { if (event.type === 'GET_TODOS') { return { todos } } return event })` |
+| onMessage | ({ message: { type: string, [key: string]: any }, socketId: string }) => { [key: string]: any } | onMessage is used to set a callback that will receive all the messages sent from the client. The properties returned in the callback will then be used to update the store, unless the message was sent with the option { updateStore: false } | `synchemy.onMessage(({ message }) => { if (event.type === 'GET_TODOS') { return { todos } } return message })` |
+| sendAll | (message: { [key: string]: any }) => void | send a message to all connected clients | `synchemy.sendAll(message)` |
+| send | (sockets: [socketId: string], message: { [key: string]: any }) => void | send a message to specific connected clients | `synchemy.send(socketIds, message)` |
+| onSocketConnection | (socketId: string) => void | callback that gets called every time a socket is connected | `synchemy.onSocketConnection(socketId => {})` |
+| onSocketDisconnection | (socketId: string) => void | callback that gets called every time a socket is disconnected | `synchemy.onSocketDisconnection(socketId => {})` |
+
+## synchemyServer properties
+
+| Properties | Description | Example |
+| --- | --- | --- |
+| sockets | An array of socket ids that represent all the connected clients | `synchemy.sockets` |

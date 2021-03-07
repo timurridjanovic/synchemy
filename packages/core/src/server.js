@@ -1,11 +1,16 @@
 import WebSocket from 'ws'
 import { v4 as uuid } from 'uuid'
 
-let sockets = {}
-let onEventCallback
-
 class SynchemyServer {
-  createConnection ({ app, server, options = {} }) {
+  sockets = []
+  #messagingManager = {
+    sockets: {},
+    onMessageCallback: null,
+    onSocketConnectionCallback: null,
+    onSocketDisconnectionCallback: null
+  }
+
+  constructor ({ app, server, options = {} }) {
     const ws = new WebSocket.Server({
       server,
       ...options
@@ -14,55 +19,80 @@ class SynchemyServer {
     server.on('request', app)
 
     ws.on('connection', socket => {
-      const noop = () => {}
-      const heartbeat = () => {
-        this.isAlive = true
-      }
-      const interval = setInterval(() => {
-        ws.clients.forEach((client) => {
-          if (client.isAlive === false) {
-            return client.terminate()
-          }
-
-          client.isAlive = false
-          client.ping(noop)
-        })
-      }, 30000)
-      socket.isAlive = true
-      socket.on('pong', heartbeat)
-
       const socketId = uuid()
-      sockets[socketId] = socket
+      this.#messagingManager.sockets[socketId] = socket
+      this.sockets.push(socketId)
 
       socket.on('message', data => {
-        const message = JSON.parse(data)
-        if (onEventCallback) {
-          onEventCallback(message).then(({ result, type, messageId }) => {
+        const parsedData = JSON.parse(data)
+        if (this.#messagingManager.onMessageCallback) {
+          this.#messagingManager.onMessageCallback(parsedData, socketId).then(({ message, messageId }) => {
             socket.send(JSON.stringify({
-              result, type, messageId
+              message, messageId
             }))
           })
         }
       })
 
-      socket.on('close', function () {
-        clearInterval(interval)
-        const { [socketId]: _, ...otherSockets } = sockets
-        sockets = otherSockets
+      socket.on('close', () => {
+        if (this.#messagingManager) {
+          const { [socketId]: _, ...otherSockets } = this.#messagingManager.sockets
+          this.#messagingManager.sockets = otherSockets
+          this.sockets = Object.keys(otherSockets)
+          if (this.#messagingManager.onSocketDisconnectionCallback) {
+            this.#messagingManager.onSocketDisconnectionCallback(socketId)
+          }
+        }
       })
+
+      if (this.#messagingManager.onSocketConnectionCallback) {
+        this.#messagingManager.onSocketConnectionCallback(socketId)
+      }
     })
   }
 
-  onEvent (func) {
-    onEventCallback = message => {
+  onSocketConnection (func) {
+    this.#messagingManager.onSocketConnectionCallback = func
+  }
+
+  onSocketDisconnection (func) {
+    this.#messagingManager.onSocketDisconnectionCallback = func
+  }
+
+  onMessage (func) {
+    this.#messagingManager.onMessageCallback = (data, socketId) => {
       return new Promise((resolve, reject) => {
-        const { type, messageId, ...otherProps } = message
-        const result = func({ type, ...otherProps })
-        resolve({ result, type, messageId })
+        const { messageId, message } = data
+        const newMessage = func({ message, socketId })
+        resolve({ message: newMessage, messageId })
       })
     }
   }
+
+  send (sockets = [], message) {
+    if (!Array.isArray(sockets)) {
+      throw new Error('The first param to synchemy.send must be an array of socket ids.')
+    }
+
+    sockets.forEach(socketId => {
+      const socket = this.#messagingManager.sockets[socketId]
+      if (socket && socket.send) {
+        socket.send(JSON.stringify({
+          message
+        }))
+      } else {
+        throw new Error('One of the socketIds you provided is invalid.')
+      }
+    })
+  }
+
+  sendAll (message) {
+    Object.values(this.#messagingManager.sockets).forEach(socket => {
+      socket.send(JSON.stringify({
+        message
+      }))
+    })
+  }
 }
 
-const synchemy = new SynchemyServer()
-export default synchemy
+export default SynchemyServer

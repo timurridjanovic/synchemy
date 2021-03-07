@@ -12,8 +12,8 @@ var _client = _interopRequireDefault(require("./client"));
 var _server = _interopRequireDefault(require("./server"));
 
 var _default = {
-  synchemyClient: _client["default"],
-  synchemyServer: _server["default"]
+  SynchemyClient: _client["default"],
+  SynchemyServer: _server["default"]
 };
 exports["default"] = _default;
 module.exports = exports.default;

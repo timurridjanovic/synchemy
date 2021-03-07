@@ -1,14 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import { debounce, throttle } from 'lodash'
 
-const messagingManager = {
-  client: null,
-  host: null,
-  listeners: {},
-  queue: [],
-  asyncActions: {}
-}
-
 const callListeners = (listeners, changes, store, loaders) => {
   Object.values(listeners).forEach(listener => {
     listener.subscribeCallback(listener.prevState, changes, store, loaders, listener)
@@ -25,78 +17,107 @@ const containsChange = (changes, prevState) => {
   return false
 }
 
+const debouncePerAnimationFrame = (func, params) => {
+  // If there's a pending function call, cancel it
+  if (func.debounce) {
+    window.cancelAnimationFrame(func.debounce)
+  }
+  // Setup the new function call to run at the next animation frame
+  func.debounce = window.requestAnimationFrame(() => {
+    func(params)
+  })
+}
+
 const isOpen = ws => {
   return ws.readyState === ws.OPEN
 }
 
+const isConnecting = ws => {
+  return ws.readyState === ws.CONNECTING
+}
+
 class SynchemyClient {
-  constructor () {
-    this.store = {}
-    this.actions = {}
-    this.asyncActions = {}
+  store = {}
+  actions = {}
+  asyncActions = {}
+  #messagingManager = {
+    client: null,
+    host: null,
+    onMessage: null,
+    listeners: {},
+    queue: [],
+    asyncActions: {}
   }
 
-  createConnection ({ host }) {
-    return new Promise((resolve, reject) => {
-      messagingManager.host = host
-      messagingManager.client = new WebSocket(host)
-      messagingManager.client.onmessage = ({ data }) => {
-        const response = JSON.parse(data)
-        const { result, messageId } = response
-        const { resolve, options } = messagingManager.queue.find(m => m.message.messageId === messageId)
+  constructor ({ host, protocols = [], actions = {} }) {
+    if (!host) {
+      throw new Error('You must provide a host to connect to.')
+    }
+
+    this.createConnection({ host, protocols })
+
+    Object.values(actions).forEach(action => {
+      this.registerAction(action.name, action.action, action.options)
+    })
+  }
+
+  createConnection ({ host, protocols = [] }) {
+    this.#messagingManager.host = host
+    this.#messagingManager.client = new WebSocket(host, protocols)
+    this.#messagingManager.client.onmessage = ({ data }) => {
+      const response = JSON.parse(data)
+      const { message, messageId } = response
+      if (messageId) {
+        const { resolve, options } = this.#messagingManager.queue.find(m => m.message.messageId === messageId)
         const { updateStore, processResponse } = options
-        const newResult = processResponse ? processResponse(result) : result
+        const newResult = processResponse ? processResponse(message) : message
         if (updateStore !== false) {
           this.store = { ...this.store, ...newResult }
-          callListeners(messagingManager.listeners, {
+          callListeners(this.#messagingManager.listeners, {
             store: newResult,
-            loaders: messagingManager.asyncActions
+            loaders: this.#messagingManager.asyncActions
           }, this.store, this.asyncActions)
         }
 
         resolve(newResult)
-        messagingManager.queue = messagingManager.queue.filter(m => m.message.messageId !== messageId)
-      }
-
-      messagingManager.client.onerror = error => {
-        console.log('ERROR: ', error)
-      }
-
-      messagingManager.client.onclose = event => {
-        if (event.code !== 1000) {
-          // Error code 1000 means that the connection was closed normally.
-          if (!navigator.onLine) {
-            reject(new Error('You are offline. Please connect to the Internet and try again.'))
-          }
+        this.#messagingManager.queue = this.#messagingManager.queue.filter(m => m.message.messageId !== messageId)
+      } else {
+        if (this.#messagingManager.onMessage) {
+          this.#messagingManager.onMessage(message)
+        } else {
+          this.store = { ...this.store, ...message }
+          callListeners(this.#messagingManager.listeners, {
+            store: message,
+            loaders: this.#messagingManager.asyncActions
+          }, this.store, this.asyncActions)
         }
       }
+    }
 
-      messagingManager.client.onopen = () => {
-        resolve()
+    this.#messagingManager.client.onerror = error => {
+      throw new Error(error)
+    }
+
+    this.#messagingManager.client.onclose = event => {
+      if (event.code !== 1000) {
+        // Error code 1000 means that the connection was closed normally.
+        if (!navigator.onLine) {
+          throw new Error('You are offline. Please connect to the Internet and try again.')
+        }
       }
-    })
+    }
   }
 
   subscribe (mapStateToProps = state => state, callback, shouldUpdate) {
     const store = this.store
     const loaders = this.asyncActions
     const prevState = mapStateToProps(store, loaders)
-    const debounceRender = (render, mappedProps) => {
-      // If there's a pending render, cancel it
-      if (render.debounce) {
-        window.cancelAnimationFrame(render.debounce)
-      }
-      // Setup the new render to run at the next animation frame
-      render.debounce = window.requestAnimationFrame(() => {
-        render(mappedProps)
-      })
-    }
     const subscribeCallback = (prevState, changes, store, loaders, listener) => {
       if (listener.shouldUpdate) {
         const newState = mapStateToProps(store, loaders)
         if (listener.shouldUpdate(prevState, newState)) {
           listener.prevState = newState
-          return debounceRender(callback, newState)
+          return debouncePerAnimationFrame(callback, newState)
         }
         return
       }
@@ -105,19 +126,23 @@ class SynchemyClient {
       if (containsChange(newChanges, prevState)) {
         const newState = mapStateToProps(store, loaders)
         listener.prevState = newState
-        return debounceRender(callback, newState)
+        return debouncePerAnimationFrame(callback, newState)
       }
     }
 
     const listener = { subscribeCallback, prevState, shouldUpdate }
     const listenerId = uuid()
-    messagingManager.listeners[listenerId] = listener
+    this.#messagingManager.listeners[listenerId] = listener
     return listenerId
   }
 
   unsubscribe (listenerId) {
-    const { [listenerId]: _, ...otherListeners } = messagingManager.listeners
-    messagingManager.listeners = otherListeners
+    const { [listenerId]: _, ...otherListeners } = this.#messagingManager.listeners
+    this.#messagingManager.listeners = otherListeners
+  }
+
+  onMessage (func) {
+    this.#messagingManager.onMessage = func
   }
 
   send (message, options = {}) {
@@ -129,14 +154,17 @@ class SynchemyClient {
 
         return message
       }
-      const newMessage = { ...getMessage(message), messageId: uuid() }
-      messagingManager.queue.push({ message: newMessage, resolve, options })
-      if (isOpen(messagingManager.client)) {
-        messagingManager.client.send(JSON.stringify(newMessage))
+      const newMessage = { message: getMessage(message), messageId: uuid() }
+      this.#messagingManager.queue.push({ message: newMessage, resolve, options })
+      if (isOpen(this.#messagingManager.client)) {
+        this.#messagingManager.client.send(JSON.stringify(newMessage))
       } else {
-        this.createConnection({ host: messagingManager.host })
-        messagingManager.client.onopen = () => {
-          messagingManager.client.send(JSON.stringify(newMessage))
+        if (!isConnecting(this.#messagingManager.client)) {
+          this.createConnection({ host: this.#messagingManager.host })
+        }
+
+        this.#messagingManager.client.onopen = () => {
+          this.#messagingManager.client.send(JSON.stringify(newMessage))
         }
       }
     })
@@ -147,15 +175,15 @@ class SynchemyClient {
       const newState = state(this.store)
       this.store = { ...this.store, ...newState }
 
-      callListeners(messagingManager.listeners, {
-        store: newState, loaders: messagingManager.asyncActions
+      callListeners(this.#messagingManager.listeners, {
+        store: newState, loaders: this.#messagingManager.asyncActions
       }, this.store, this.asyncActions)
     } else {
       this.store = { ...this.store, ...state }
 
-      callListeners(messagingManager.listeners, {
+      callListeners(this.#messagingManager.listeners, {
         store: state,
-        loaders: messagingManager.asyncActions
+        loaders: this.#messagingManager.asyncActions
       }, this.store, this.asyncActions)
     }
   }
@@ -182,7 +210,7 @@ class SynchemyClient {
       return `${word.substring(0, 1).toUpperCase()}${word.substring(1).toLowerCase()}`
     }).join('')
 
-    messagingManager.asyncActions[methodName] = {}
+    this.#messagingManager.asyncActions[methodName] = {}
     this.asyncActions[methodName] = {
       name: actionName,
       loading: false
@@ -196,11 +224,11 @@ class SynchemyClient {
       const changes = {
         store: {},
         loaders: {
-          ...messagingManager.asyncActions,
+          ...this.#messagingManager.asyncActions,
           [methodName]: { loading: true }
         }
       }
-      callListeners(messagingManager.listeners, changes, this.store, this.asyncActions)
+      callListeners(this.#messagingManager.listeners, changes, this.store, this.asyncActions)
       await newAction(...args)
       this.asyncActions[methodName] = {
         ...this.asyncActions[methodName],
@@ -209,14 +237,13 @@ class SynchemyClient {
       const newChanges = {
         store: {},
         loaders: {
-          ...messagingManager.asyncActions,
+          ...this.#messagingManager.asyncActions,
           [methodName]: { loading: false }
         }
       }
-      callListeners(messagingManager.listeners, newChanges, this.store, this.asyncActions)
+      callListeners(this.#messagingManager.listeners, newChanges, this.store, this.asyncActions)
     }
   }
 }
 
-const synchemy = new SynchemyClient()
-export default synchemy
+export default SynchemyClient

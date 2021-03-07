@@ -15,11 +15,13 @@ var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/
 
 var _objectWithoutProperties2 = _interopRequireDefault(require("@babel/runtime/helpers/objectWithoutProperties"));
 
-var _defineProperty2 = _interopRequireDefault(require("@babel/runtime/helpers/defineProperty"));
-
 var _classCallCheck2 = _interopRequireDefault(require("@babel/runtime/helpers/classCallCheck"));
 
 var _createClass2 = _interopRequireDefault(require("@babel/runtime/helpers/createClass"));
+
+var _defineProperty2 = _interopRequireDefault(require("@babel/runtime/helpers/defineProperty"));
+
+var _classPrivateFieldGet4 = _interopRequireDefault(require("@babel/runtime/helpers/classPrivateFieldGet"));
 
 var _uuid = require("uuid");
 
@@ -32,14 +34,6 @@ function _toPrimitive(input, hint) { if (_typeof(input) !== "object" || input ==
 function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
 
 function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { (0, _defineProperty2["default"])(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
-
-var messagingManager = {
-  client: null,
-  host: null,
-  listeners: {},
-  queue: [],
-  asyncActions: {}
-};
 
 var callListeners = function callListeners(listeners, changes, store, loaders) {
   Object.values(listeners).forEach(function (listener) {
@@ -59,75 +53,132 @@ var containsChange = function containsChange(changes, prevState) {
   return false;
 };
 
+var debouncePerAnimationFrame = function debouncePerAnimationFrame(func, params) {
+  // If there's a pending function call, cancel it
+  if (func.debounce) {
+    window.cancelAnimationFrame(func.debounce);
+  } // Setup the new function call to run at the next animation frame
+
+
+  func.debounce = window.requestAnimationFrame(function () {
+    func(params);
+  });
+};
+
 var isOpen = function isOpen(ws) {
   return ws.readyState === ws.OPEN;
 };
 
+var isConnecting = function isConnecting(ws) {
+  return ws.readyState === ws.CONNECTING;
+};
+
+var _messagingManager = new WeakMap();
+
 var SynchemyClient = /*#__PURE__*/function () {
-  function SynchemyClient() {
+  function SynchemyClient(_ref) {
+    var _this = this;
+
+    var host = _ref.host,
+        _ref$protocols = _ref.protocols,
+        protocols = _ref$protocols === void 0 ? [] : _ref$protocols,
+        _ref$actions = _ref.actions,
+        actions = _ref$actions === void 0 ? {} : _ref$actions;
     (0, _classCallCheck2["default"])(this, SynchemyClient);
-    this.store = {};
-    this.actions = {};
-    this.asyncActions = {};
+    (0, _defineProperty2["default"])(this, "store", {});
+    (0, _defineProperty2["default"])(this, "actions", {});
+    (0, _defineProperty2["default"])(this, "asyncActions", {});
+
+    _messagingManager.set(this, {
+      writable: true,
+      value: {
+        client: null,
+        host: null,
+        onMessage: null,
+        listeners: {},
+        queue: [],
+        asyncActions: {}
+      }
+    });
+
+    if (!host) {
+      throw new Error('You must provide a host to connect to.');
+    }
+
+    this.createConnection({
+      host: host,
+      protocols: protocols
+    });
+    Object.values(actions).forEach(function (action) {
+      _this.registerAction(action.name, action.action, action.options);
+    });
   }
 
   (0, _createClass2["default"])(SynchemyClient, [{
     key: "createConnection",
-    value: function createConnection(_ref) {
-      var _this = this;
+    value: function createConnection(_ref2) {
+      var _this2 = this;
 
-      var host = _ref.host;
-      return new Promise(function (resolve, reject) {
-        messagingManager.host = host;
-        messagingManager.client = new WebSocket(host);
+      var host = _ref2.host,
+          _ref2$protocols = _ref2.protocols,
+          protocols = _ref2$protocols === void 0 ? [] : _ref2$protocols;
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).host = host;
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client = new WebSocket(host, protocols);
 
-        messagingManager.client.onmessage = function (_ref2) {
-          var data = _ref2.data;
-          var response = JSON.parse(data);
-          var result = response.result,
-              messageId = response.messageId;
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onmessage = function (_ref3) {
+        var data = _ref3.data;
+        var response = JSON.parse(data);
+        var message = response.message,
+            messageId = response.messageId;
 
-          var _messagingManager$que = messagingManager.queue.find(function (m) {
+        if (messageId) {
+          var _classPrivateFieldGet2 = (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).queue.find(function (m) {
             return m.message.messageId === messageId;
           }),
-              resolve = _messagingManager$que.resolve,
-              options = _messagingManager$que.options;
+              resolve = _classPrivateFieldGet2.resolve,
+              options = _classPrivateFieldGet2.options;
 
           var updateStore = options.updateStore,
               processResponse = options.processResponse;
-          var newResult = processResponse ? processResponse(result) : result;
+          var newResult = processResponse ? processResponse(message) : message;
 
           if (updateStore !== false) {
-            _this.store = _objectSpread(_objectSpread({}, _this.store), newResult);
-            callListeners(messagingManager.listeners, {
+            _this2.store = _objectSpread(_objectSpread({}, _this2.store), newResult);
+            callListeners((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).listeners, {
               store: newResult,
-              loaders: messagingManager.asyncActions
-            }, _this.store, _this.asyncActions);
+              loaders: (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).asyncActions
+            }, _this2.store, _this2.asyncActions);
           }
 
           resolve(newResult);
-          messagingManager.queue = messagingManager.queue.filter(function (m) {
+          (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).queue = (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).queue.filter(function (m) {
             return m.message.messageId !== messageId;
           });
-        };
-
-        messagingManager.client.onerror = function (error) {
-          console.log('ERROR: ', error);
-        };
-
-        messagingManager.client.onclose = function (event) {
-          if (event.code !== 1000) {
-            // Error code 1000 means that the connection was closed normally.
-            if (!navigator.onLine) {
-              reject(new Error('You are offline. Please connect to the Internet and try again.'));
-            }
+        } else {
+          if ((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).onMessage) {
+            (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).onMessage(message);
+          } else {
+            _this2.store = _objectSpread(_objectSpread({}, _this2.store), message);
+            callListeners((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).listeners, {
+              store: message,
+              loaders: (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).asyncActions
+            }, _this2.store, _this2.asyncActions);
           }
-        };
+        }
+      };
 
-        messagingManager.client.onopen = function () {
-          resolve();
-        };
-      });
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onerror = function (error) {
+        throw new Error(error);
+      };
+
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onclose = function (event) {
+        if (event.code !== 1000) {
+          // Error code 1000 means that the connection was closed normally.
+          if (!navigator.onLine) {
+            throw new Error('You are offline. Please connect to the Internet and try again.');
+          }
+        }
+      };
     }
   }, {
     key: "subscribe",
@@ -141,25 +192,13 @@ var SynchemyClient = /*#__PURE__*/function () {
       var loaders = this.asyncActions;
       var prevState = mapStateToProps(store, loaders);
 
-      var debounceRender = function debounceRender(render, mappedProps) {
-        // If there's a pending render, cancel it
-        if (render.debounce) {
-          window.cancelAnimationFrame(render.debounce);
-        } // Setup the new render to run at the next animation frame
-
-
-        render.debounce = window.requestAnimationFrame(function () {
-          render(mappedProps);
-        });
-      };
-
       var subscribeCallback = function subscribeCallback(prevState, changes, store, loaders, listener) {
         if (listener.shouldUpdate) {
           var newState = mapStateToProps(store, loaders);
 
           if (listener.shouldUpdate(prevState, newState)) {
             listener.prevState = newState;
-            return debounceRender(callback, newState);
+            return debouncePerAnimationFrame(callback, newState);
           }
 
           return;
@@ -171,7 +210,7 @@ var SynchemyClient = /*#__PURE__*/function () {
           var _newState = mapStateToProps(store, loaders);
 
           listener.prevState = _newState;
-          return debounceRender(callback, _newState);
+          return debouncePerAnimationFrame(callback, _newState);
         }
       };
 
@@ -181,51 +220,58 @@ var SynchemyClient = /*#__PURE__*/function () {
         shouldUpdate: shouldUpdate
       };
       var listenerId = (0, _uuid.v4)();
-      messagingManager.listeners[listenerId] = listener;
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners[listenerId] = listener;
       return listenerId;
     }
   }, {
     key: "unsubscribe",
     value: function unsubscribe(listenerId) {
-      var _messagingManager$lis = messagingManager.listeners,
-          _ = _messagingManager$lis[listenerId],
-          otherListeners = (0, _objectWithoutProperties2["default"])(_messagingManager$lis, [listenerId].map(_toPropertyKey));
-      messagingManager.listeners = otherListeners;
+      var _classPrivateFieldGet3 = (0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners,
+          _ = _classPrivateFieldGet3[listenerId],
+          otherListeners = (0, _objectWithoutProperties2["default"])(_classPrivateFieldGet3, [listenerId].map(_toPropertyKey));
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners = otherListeners;
+    }
+  }, {
+    key: "onMessage",
+    value: function onMessage(func) {
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).onMessage = func;
     }
   }, {
     key: "send",
     value: function send(message) {
-      var _this2 = this;
+      var _this3 = this;
 
       var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
       return new Promise(function (resolve, reject) {
         var getMessage = function getMessage(message) {
           if (typeof message === 'function') {
-            return message(_this2.store);
+            return message(_this3.store);
           }
 
           return message;
         };
 
-        var newMessage = _objectSpread(_objectSpread({}, getMessage(message)), {}, {
+        var newMessage = {
+          message: getMessage(message),
           messageId: (0, _uuid.v4)()
-        });
-
-        messagingManager.queue.push({
+        };
+        (0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).queue.push({
           message: newMessage,
           resolve: resolve,
           options: options
         });
 
-        if (isOpen(messagingManager.client)) {
-          messagingManager.client.send(JSON.stringify(newMessage));
+        if (isOpen((0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).client)) {
+          (0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).client.send(JSON.stringify(newMessage));
         } else {
-          _this2.createConnection({
-            host: messagingManager.host
-          });
+          if (!isConnecting((0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).client)) {
+            _this3.createConnection({
+              host: (0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).host
+            });
+          }
 
-          messagingManager.client.onopen = function () {
-            messagingManager.client.send(JSON.stringify(newMessage));
+          (0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).client.onopen = function () {
+            (0, _classPrivateFieldGet4["default"])(_this3, _messagingManager).client.send(JSON.stringify(newMessage));
           };
         }
       });
@@ -236,22 +282,22 @@ var SynchemyClient = /*#__PURE__*/function () {
       if (typeof state === 'function') {
         var newState = state(this.store);
         this.store = _objectSpread(_objectSpread({}, this.store), newState);
-        callListeners(messagingManager.listeners, {
+        callListeners((0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners, {
           store: newState,
-          loaders: messagingManager.asyncActions
+          loaders: (0, _classPrivateFieldGet4["default"])(this, _messagingManager).asyncActions
         }, this.store, this.asyncActions);
       } else {
         this.store = _objectSpread(_objectSpread({}, this.store), state);
-        callListeners(messagingManager.listeners, {
+        callListeners((0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners, {
           store: state,
-          loaders: messagingManager.asyncActions
+          loaders: (0, _classPrivateFieldGet4["default"])(this, _messagingManager).asyncActions
         }, this.store, this.asyncActions);
       }
     }
   }, {
     key: "registerAction",
     value: function registerAction(actionName, action) {
-      var _this3 = this;
+      var _this4 = this;
 
       var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
 
@@ -275,7 +321,7 @@ var SynchemyClient = /*#__PURE__*/function () {
 
         return "".concat(word.substring(0, 1).toUpperCase()).concat(word.substring(1).toLowerCase());
       }).join('');
-      messagingManager.asyncActions[methodName] = {};
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).asyncActions[methodName] = {};
       this.asyncActions[methodName] = {
         name: actionName,
         loading: false
@@ -288,30 +334,30 @@ var SynchemyClient = /*#__PURE__*/function () {
           while (1) {
             switch (_context.prev = _context.next) {
               case 0:
-                _this3.asyncActions[methodName] = _objectSpread(_objectSpread({}, _this3.asyncActions[methodName]), {}, {
+                _this4.asyncActions[methodName] = _objectSpread(_objectSpread({}, _this4.asyncActions[methodName]), {}, {
                   loading: true
                 });
                 changes = {
                   store: {},
-                  loaders: _objectSpread(_objectSpread({}, messagingManager.asyncActions), {}, (0, _defineProperty2["default"])({}, methodName, {
+                  loaders: _objectSpread(_objectSpread({}, (0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).asyncActions), {}, (0, _defineProperty2["default"])({}, methodName, {
                     loading: true
                   }))
                 };
-                callListeners(messagingManager.listeners, changes, _this3.store, _this3.asyncActions);
+                callListeners((0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).listeners, changes, _this4.store, _this4.asyncActions);
                 _context.next = 5;
                 return newAction.apply(void 0, _args);
 
               case 5:
-                _this3.asyncActions[methodName] = _objectSpread(_objectSpread({}, _this3.asyncActions[methodName]), {}, {
+                _this4.asyncActions[methodName] = _objectSpread(_objectSpread({}, _this4.asyncActions[methodName]), {}, {
                   loading: false
                 });
                 newChanges = {
                   store: {},
-                  loaders: _objectSpread(_objectSpread({}, messagingManager.asyncActions), {}, (0, _defineProperty2["default"])({}, methodName, {
+                  loaders: _objectSpread(_objectSpread({}, (0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).asyncActions), {}, (0, _defineProperty2["default"])({}, methodName, {
                     loading: false
                   }))
                 };
-                callListeners(messagingManager.listeners, newChanges, _this3.store, _this3.asyncActions);
+                callListeners((0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).listeners, newChanges, _this4.store, _this4.asyncActions);
 
               case 8:
               case "end":
@@ -325,8 +371,7 @@ var SynchemyClient = /*#__PURE__*/function () {
   return SynchemyClient;
 }();
 
-var synchemy = new SynchemyClient();
-var _default = synchemy;
+var _default = SynchemyClient;
 exports["default"] = _default;
 module.exports = exports.default;
 //# sourceMappingURL=client.js.map
