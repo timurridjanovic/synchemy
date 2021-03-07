@@ -1,6 +1,6 @@
 {
   "name": "@synchemy/core",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "State management library that makes it easy to sync between client and server through websockets",
   "main": "build/index.js",
   "scripts": {
