@@ -7,7 +7,7 @@
 
 | Name | Latest Version |
 | --- | --- |
-| [@synchemy/use-store](.) | [![badge](https://img.shields.io/npm/v/@synchemy/use-store.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/use-store) |
+| [@synchemy/use-store](https://github.com/timurridjanovic/synchemy/tree/main/packages/use-store) | [![badge](https://img.shields.io/npm/v/@synchemy/use-store.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/use-store) |
 
 ## Description
 

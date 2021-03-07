@@ -7,7 +7,7 @@
 
 | Name | Latest Version |
 | --- | --- |
-| [@synchemy/core](.) | [![badge](https://img.shields.io/npm/v/@synchemy/core.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/core) |
+| [@synchemy/core](https://github.com/timurridjanovic/synchemy/tree/main/packages/core) | [![badge](https://img.shields.io/npm/v/@synchemy/core.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/core) |
 
 ## Description
 
