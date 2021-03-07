@@ -94,10 +94,6 @@ class SynchemyClient {
       }
     }
 
-    this.#messagingManager.client.onerror = error => {
-      throw new Error(error)
-    }
-
     this.#messagingManager.client.onclose = event => {
       if (event.code !== 1000) {
         // Error code 1000 means that the connection was closed normally.

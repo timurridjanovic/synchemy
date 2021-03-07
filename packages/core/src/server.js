@@ -10,9 +10,14 @@ class SynchemyServer {
     onSocketDisconnectionCallback: null
   }
 
-  constructor ({ app, server, options = {} }) {
+  constructor ({ app, server, port, options = {} }) {
+    if (!server) {
+      throw new Error('The SynchemyServer constructor needs a server property.')
+    }
+
+    const config = port ? { port } : { server }
     const ws = new WebSocket.Server({
-      server,
+      ...config,
       ...options
     })
 

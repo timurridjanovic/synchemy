@@ -167,10 +167,6 @@ var SynchemyClient = /*#__PURE__*/function () {
         }
       };
 
-      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onerror = function (error) {
-        throw new Error(error);
-      };
-
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onclose = function (event) {
         if (event.code !== 1000) {
           // Error code 1000 means that the connection was closed normally.

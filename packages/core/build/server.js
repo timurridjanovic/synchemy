@@ -39,6 +39,7 @@ var SynchemyServer = /*#__PURE__*/function () {
 
     var app = _ref.app,
         server = _ref.server,
+        port = _ref.port,
         _ref$options = _ref.options,
         options = _ref$options === void 0 ? {} : _ref$options;
     (0, _classCallCheck2["default"])(this, SynchemyServer);
@@ -54,9 +55,16 @@ var SynchemyServer = /*#__PURE__*/function () {
       }
     });
 
-    var ws = new _ws["default"].Server(_objectSpread({
+    if (!server) {
+      throw new Error('The SynchemyServer constructor needs a server property.');
+    }
+
+    var config = port ? {
+      port: port
+    } : {
       server: server
-    }, options));
+    };
+    var ws = new _ws["default"].Server(_objectSpread(_objectSpread({}, config), options));
     server.on('request', app);
     ws.on('connection', function (socket) {
       var socketId = (0, _uuid.v4)();
