@@ -15,8 +15,6 @@
 
 ## Description
 
-Why Synchemy?
-
 Synchemy is a state management library that keeps the client side store 
 automatically in sync with the server using websockets. 
 This library is used both on the client side with react and on the server side 
