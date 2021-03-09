@@ -181,7 +181,7 @@ const { synchemyServer: synchemy } = require('@synchemy/core');
 
 var app = express();
 
-synchemy.createConnection({ app, server });
+const synchemy = new SynchemyServer({ app, server });
 synchemy.onMessage(async (({ message, socketId }) => {
   // The socketId can be tracked to send messages to specific clients. All socket ids
   // are accessible on synchemy.sockets
@@ -194,6 +194,13 @@ synchemy.onMessage(async (({ message, socketId }) => {
 
   return message;
 });
+```
+
+You can also mount the SynchemyServer without Express app or the server 
+by just specifying the port.
+
+```js
+const synchemy = new SynchemyServer({ port: 4000 });
 ```
 
 You can send messages to all clients...
@@ -231,7 +238,7 @@ setup these callbacks.
 | Method | Params | Description | Example |
 | --- | --- | --- | --- |
 | createConnection | (options: { host: string }) => Promise | createConnection is used to establish a websockets connection with the server. | `await synchemy.createConnection({ host: 'ws://localhost:3000' })` |
-| subscribe | (mapStateToProps?: (state: State, loaders: Loaders) => props: Props, callback: () => void, shouldUpdate?: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. | `const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, shouldUpdate)` |
+| subscribe | (mapStateToProps?: (state: State, loaders: Loaders) => props: Props, callback: (store: Store) => void, shouldUpdate?: (prevState, nextState) => boolean) => string | subscribe is used to subscribe to store and loaders changes. The mapStateToProps param is used to select only certain props in the store for which you want to subscribe to. The callback is called once a change you subscribed to occurs. The shouldUpdate param gives you more control over whether you want to update the store or not. | `const listenerId = synchemy.subscribe(mapStateToProps, subscribeCallback, shouldUpdate)` |
 | unsubscribe | (listenerId: string) => void | unsubscribe is used to remove the callback listener you set with the subscribe method. Use the listenerId returned by the subscribe method in the param. | `synchemy.unsubscribe(listenerId)` |
 | onMessage | (message: { [key: string]: any } => void | onMessage is used to react to messages sent by the server instead of updating the store automatically. | `synchemy.onMessage(message => {})` |
 | send | (message: { type: string, [key: string]: any } \| (store: Store) => Message, options?: { updateStore?: boolean, processResponse: (response: Response) => processedResponse: Response) => Promise | send is used to send messages to the server using websockets. The server will send back a response and update the store automatically unless updateStore is set to false. You can also process the server response before updating the store using the processResponse function. | `await synchemy.send({ type: 'GET_TODO', todoId }, { updateStore: false, processResponse })` |
