@@ -190,7 +190,7 @@ on the client side, unless you send the event using
 ```js
 const express = require('express');
 const server = require('http').createServer();
-const { synchemyServer: synchemy } = require('@synchemy/core');
+const { SynchemyServer } = require('@synchemy/core');
 
 var app = express();
 
