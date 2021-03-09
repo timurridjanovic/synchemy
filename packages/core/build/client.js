@@ -207,7 +207,6 @@ var SynchemyClient = /*#__PURE__*/function () {
       };
       var listenerId = (0, _uuid.v4)();
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners[listenerId] = listener;
-      debouncePerAnimationFrame(callback, prevState);
       return listenerId;
     }
   }, {

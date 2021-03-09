@@ -123,7 +123,6 @@ class SynchemyClient {
     const listener = { subscribeCallback, prevState, shouldUpdate }
     const listenerId = uuid()
     this.#messagingManager.listeners[listenerId] = listener
-    debouncePerAnimationFrame(callback, prevState)
     return listenerId
   }
 
