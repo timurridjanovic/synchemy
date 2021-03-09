@@ -17,8 +17,6 @@
 
 Synchemy is a state management library that keeps the client side store 
 automatically in sync with the server using websockets. 
-This library is used both on the client side with react and on the server side 
-using nodejs and expressjs.
 
 On the server side, this library uses an evented approach to receive
 and send back messages to the client. Any messages sent back to the
@@ -33,7 +31,52 @@ to false at the end of the action. If used with react, you can use the useStore 
 to subscribe to any store or loading flag changes. Actions also come with a debounce 
 or throttle option in case you need to debounce or throttle your actions.
 
-# SynchemyClient setup
+Here is the simplest client side and server side setup you can have:
+
+## Client
+
+```js
+const { SynchemyClient } = require('@synchemy/core')
+
+const synchemy = new SynchemyClient({
+  host: 'ws://localhost:4000'
+})
+
+synchemy.updateStore({ todos: [] })
+synchemy.registerAction('GET_TODOS', async () => {
+  await synchemy.send({ type: 'GET_TODOS' })
+})
+
+synchemy.subscribe((state, loaders) => {
+  return {
+    todos: state.todos,
+    todosLoading: loaders.getTodos.loading
+  }
+}, store => {
+  console.log('NEW STORE: ', store)
+}) // you can add a shouldUpdate function as a 3rd param.
+
+synchemy.actions.getTodos()
+```
+
+## Server
+
+```js
+const { SynchemyServer } = require('@synchemy/core')
+
+const synchemy = new SynchemyServer({ port: 4000 });
+synchemy.onMessage(({ message }) => {
+  if (message.type === 'GET_TODOS') {
+    return { todos: [{ name: 'first todo' }] }
+  }
+
+  return message;
+});
+```
+
+Now let's take a look at the setup if using React.
+
+## SynchemyClient setup with React
 
 First, let's create the synchemy instance and keep it in a separate file for easy imports.
 ```js
@@ -104,12 +147,13 @@ const synchemy = new SynchemyClient({
 })
 ```
 
-# useStore react hook setup (if used with react)
+## useStore hook setup with React
 
-The useStore hook is used in combination with react. The useStore 
-callback will be invoked anytime there is a store change or a loading flag
-change. Your component will rerender only if the changes are in any
-of the properties that you return from the callback.
+You must first call useStore with the synchemy instance. You'll then
+get back a function which you can call with a callback invoked anytime 
+there is a store change or a loading flag change. Your component 
+will rerender only if the changes are in any of the properties that 
+you return from the callback.
 
 ```js
 // app.js
@@ -166,20 +210,7 @@ const store = useStore(synchemy)((state, loaders) => {
 });
 ```
 
-If not using react, you can achieve the same thing by using `synchemy.subscribe`.
-
-```js
-synchemy.subscribe((state, loaders) => {
-  return {
-    todos: state.todos,
-    todosLoading: loaders.getTodos.loading
-  }
-}, store => {
-  console.log('NEW STORE: ', store)
-}) // you can add a shouldUpdate function as a 3rd param.
-```
-
-# SynchemyServer setup
+## SynchemyServer setup with Node and Express
 
 Whenever you send an event from the client side using
 `synchemy.send({ type: 'GET_TODOS' })`, the onMessage callback will get
@@ -207,13 +238,6 @@ synchemy.onMessage(async (({ message, socketId }) => {
 
   return message;
 });
-```
-
-You can also mount the SynchemyServer without Express app or the server 
-by just specifying the port.
-
-```js
-const synchemy = new SynchemyServer({ port: 4000 });
 ```
 
 You can send messages to all clients...

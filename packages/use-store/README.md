@@ -9,12 +9,13 @@
 | --- | --- |
 | [@synchemy/use-store](https://github.com/timurridjanovic/synchemy/tree/main/packages/use-store) | [![badge](https://img.shields.io/npm/v/@synchemy/use-store.svg?style=flat-square)](https://www.npmjs.com/package/@synchemy/use-store) |
 
-## Description
+## useStore hook setup with React
 
-The useStore hook is used in combination with react. The useStore 
-callback will be invoked anytime there is a store change or a loading flag
-change. Your component will rerender only if the changes are in any
-of the properties that you return from the callback.
+You must first call useStore with the synchemy instance. You'll then
+get back a function which you can call with a callback invoked anytime 
+there is a store change or a loading flag change. Your component 
+will rerender only if the changes are in any of the properties that 
+you return from the callback.
 
 ```js
 // app.js

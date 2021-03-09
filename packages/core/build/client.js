@@ -29,6 +29,8 @@ var _isomorphicWs = _interopRequireDefault(require("isomorphic-ws"));
 
 var _lodash = require("lodash");
 
+var _requestAnimationFrame = require("./requestAnimationFrame");
+
 function _toPropertyKey(arg) { var key = _toPrimitive(arg, "string"); return _typeof(key) === "symbol" ? key : String(key); }
 
 function _toPrimitive(input, hint) { if (_typeof(input) !== "object" || input === null) return input; var prim = input[Symbol.toPrimitive]; if (prim !== undefined) { var res = prim.call(input, hint || "default"); if (_typeof(res) !== "object") return res; throw new TypeError("@@toPrimitive must return a primitive value."); } return (hint === "string" ? String : Number)(input); }
@@ -56,19 +58,15 @@ var containsChange = function containsChange(changes, prevState) {
 };
 
 var debouncePerAnimationFrame = function debouncePerAnimationFrame(func, params) {
-  if (typeof window !== 'undefined') {
-    // If there's a pending function call, cancel it
-    if (func.debounce) {
-      window.cancelAnimationFrame(func.debounce);
-    } // Setup the new function call to run at the next animation frame
+  // If there's a pending function call, cancel it
+  if (func.debounce) {
+    (0, _requestAnimationFrame.caf)(func.debounce);
+  } // Setup the new function call to run at the next animation frame
 
 
-    func.debounce = window.requestAnimationFrame(function () {
-      func(params);
-    });
-  } else {
+  func.debounce = (0, _requestAnimationFrame.raf)(function () {
     func(params);
-  }
+  });
 };
 
 var isOpen = function isOpen(ws) {
@@ -209,6 +207,7 @@ var SynchemyClient = /*#__PURE__*/function () {
       };
       var listenerId = (0, _uuid.v4)();
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners[listenerId] = listener;
+      debouncePerAnimationFrame(callback, prevState);
       return listenerId;
     }
   }, {

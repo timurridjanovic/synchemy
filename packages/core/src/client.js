@@ -1,6 +1,7 @@
 import { v4 as uuid } from 'uuid'
 import WebSocket from 'isomorphic-ws'
 import { debounce, throttle } from 'lodash'
+import { raf, caf } from './requestAnimationFrame'
 
 const callListeners = (listeners, store, loaders) => {
   Object.values(listeners).forEach(listener => {
@@ -19,18 +20,14 @@ const containsChange = (changes, prevState) => {
 }
 
 const debouncePerAnimationFrame = (func, params) => {
-  if (typeof window !== 'undefined') {
-    // If there's a pending function call, cancel it
-    if (func.debounce) {
-      window.cancelAnimationFrame(func.debounce)
-    }
-    // Setup the new function call to run at the next animation frame
-    func.debounce = window.requestAnimationFrame(() => {
-      func(params)
-    })
-  } else {
-    func(params)
+  // If there's a pending function call, cancel it
+  if (func.debounce) {
+    caf(func.debounce)
   }
+  // Setup the new function call to run at the next animation frame
+  func.debounce = raf(() => {
+    func(params)
+  })
 }
 
 const isOpen = ws => {
@@ -126,6 +123,7 @@ class SynchemyClient {
     const listener = { subscribeCallback, prevState, shouldUpdate }
     const listenerId = uuid()
     this.#messagingManager.listeners[listenerId] = listener
+    debouncePerAnimationFrame(callback, prevState)
     return listenerId
   }
 
