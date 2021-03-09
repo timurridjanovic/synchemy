@@ -1,6 +1,6 @@
 {
   "name": "@synchemy/core",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "State management library that makes it easy to sync between client and server through websockets",
   "main": "build/index.js",
   "scripts": {
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@babel/runtime": "^7.13.9",
+    "isomorphic-ws": "^4.0.1",
     "lodash": "^4.17.21",
     "uuid": "^8.3.2",
     "ws": "^7.4.3"

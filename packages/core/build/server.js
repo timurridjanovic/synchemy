@@ -31,17 +31,20 @@ function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (O
 
 function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { (0, _defineProperty2["default"])(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
 
+var paramTypeErrors = function paramTypeErrors(functionName, types, returnType) {
+  return "".concat(functionName, " takes these param types: (").concat(types.join(', '), ") => ").concat(returnType, ".");
+};
+
+var getConstructorParamType = function getConstructorParamType() {
+  return 'oneOf(' + '{ server: NodeHTTPServer, app?: ExpressApp, port?: Number }, ' + '{ port: Number }' + ')';
+};
+
 var _messagingManager = new WeakMap();
 
 var SynchemyServer = /*#__PURE__*/function () {
-  function SynchemyServer(_ref) {
+  function SynchemyServer(args) {
     var _this = this;
 
-    var app = _ref.app,
-        server = _ref.server,
-        port = _ref.port,
-        _ref$options = _ref.options,
-        options = _ref$options === void 0 ? {} : _ref$options;
     (0, _classCallCheck2["default"])(this, SynchemyServer);
     (0, _defineProperty2["default"])(this, "sockets", []);
 
@@ -55,8 +58,22 @@ var SynchemyServer = /*#__PURE__*/function () {
       }
     });
 
-    if (!server) {
-      throw new Error('The SynchemyServer constructor needs a server property.');
+    if (!args) {
+      throw new Error(paramTypeErrors('SynchemyServer constructor', [getConstructorParamType()], 'void'));
+    }
+
+    var app = args.app,
+        server = args.server,
+        port = args.port,
+        _args$options = args.options,
+        options = _args$options === void 0 ? {} : _args$options;
+
+    if (!server && !port) {
+      throw new Error(paramTypeErrors('SynchemyServer constructor', [getConstructorParamType()], 'void'));
+    }
+
+    if (app && typeof app !== 'function') {
+      throw new Error('The app property needs to be an Expressjs app.');
     }
 
     var config = port ? {
@@ -65,7 +82,11 @@ var SynchemyServer = /*#__PURE__*/function () {
       server: server
     };
     var ws = new _ws["default"].Server(_objectSpread(_objectSpread({}, config), options));
-    server.on('request', app);
+
+    if (server && app) {
+      server.on('request', app);
+    }
+
     ws.on('connection', function (socket) {
       var socketId = (0, _uuid.v4)();
       (0, _classPrivateFieldGet3["default"])(_this, _messagingManager).sockets[socketId] = socket;
@@ -76,9 +97,9 @@ var SynchemyServer = /*#__PURE__*/function () {
         var parsedData = JSON.parse(data);
 
         if ((0, _classPrivateFieldGet3["default"])(_this, _messagingManager).onMessageCallback) {
-          (0, _classPrivateFieldGet3["default"])(_this, _messagingManager).onMessageCallback(parsedData, socketId).then(function (_ref2) {
-            var message = _ref2.message,
-                messageId = _ref2.messageId;
+          (0, _classPrivateFieldGet3["default"])(_this, _messagingManager).onMessageCallback(parsedData, socketId).then(function (_ref) {
+            var message = _ref.message,
+                messageId = _ref.messageId;
             socket.send(JSON.stringify({
               message: message,
               messageId: messageId
@@ -109,16 +130,28 @@ var SynchemyServer = /*#__PURE__*/function () {
   (0, _createClass2["default"])(SynchemyServer, [{
     key: "onSocketConnection",
     value: function onSocketConnection(func) {
+      if (typeof func !== 'function') {
+        throw new Error(paramTypeErrors('onSocketConnection', ['function'], 'void'));
+      }
+
       (0, _classPrivateFieldGet3["default"])(this, _messagingManager).onSocketConnectionCallback = func;
     }
   }, {
     key: "onSocketDisconnection",
     value: function onSocketDisconnection(func) {
+      if (typeof func !== 'function') {
+        throw new Error(paramTypeErrors('onSocketConnection', ['function'], 'void'));
+      }
+
       (0, _classPrivateFieldGet3["default"])(this, _messagingManager).onSocketDisconnectionCallback = func;
     }
   }, {
     key: "onMessage",
     value: function onMessage(func) {
+      if (typeof func !== 'function') {
+        throw new Error(paramTypeErrors('onSocketConnection', ['function'], 'void'));
+      }
+
       (0, _classPrivateFieldGet3["default"])(this, _messagingManager).onMessageCallback = function (data, socketId) {
         return new Promise(function (resolve, reject) {
           var messageId = data.messageId,

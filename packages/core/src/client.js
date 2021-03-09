@@ -1,15 +1,16 @@
 import { v4 as uuid } from 'uuid'
+import WebSocket from 'isomorphic-ws'
 import { debounce, throttle } from 'lodash'
 
-const callListeners = (listeners, changes, store, loaders) => {
+const callListeners = (listeners, store, loaders) => {
   Object.values(listeners).forEach(listener => {
-    listener.subscribeCallback(listener.prevState, changes, store, loaders, listener)
+    listener.subscribeCallback(listener.prevState, store, loaders, listener)
   })
 }
 
 const containsChange = (changes, prevState) => {
   for (const change of Object.entries(changes)) {
-    if (change[1] !== undefined && prevState[change[0]] !== change[1]) {
+    if (prevState[change[0]] !== change[1]) {
       return true
     }
   }
@@ -18,14 +19,18 @@ const containsChange = (changes, prevState) => {
 }
 
 const debouncePerAnimationFrame = (func, params) => {
-  // If there's a pending function call, cancel it
-  if (func.debounce) {
-    window.cancelAnimationFrame(func.debounce)
-  }
-  // Setup the new function call to run at the next animation frame
-  func.debounce = window.requestAnimationFrame(() => {
+  if (typeof window !== 'undefined') {
+    // If there's a pending function call, cancel it
+    if (func.debounce) {
+      window.cancelAnimationFrame(func.debounce)
+    }
+    // Setup the new function call to run at the next animation frame
+    func.debounce = window.requestAnimationFrame(() => {
+      func(params)
+    })
+  } else {
     func(params)
-  })
+  }
 }
 
 const isOpen = ws => {
@@ -45,8 +50,7 @@ class SynchemyClient {
     host: null,
     onMessage: null,
     listeners: {},
-    queue: [],
-    asyncActions: {}
+    queue: []
   }
 
   constructor ({ host, actions = {} }) {
@@ -73,10 +77,7 @@ class SynchemyClient {
         const newResult = processResponse ? processResponse(message) : message
         if (updateStore !== false) {
           this.store = { ...this.store, ...newResult }
-          callListeners(this.#messagingManager.listeners, {
-            store: newResult,
-            loaders: this.#messagingManager.asyncActions
-          }, this.store, this.asyncActions)
+          callListeners(this.#messagingManager.listeners, this.store, this.asyncActions)
         }
 
         resolve(newResult)
@@ -86,10 +87,7 @@ class SynchemyClient {
           this.#messagingManager.onMessage(message)
         } else {
           this.store = { ...this.store, ...message }
-          callListeners(this.#messagingManager.listeners, {
-            store: message,
-            loaders: this.#messagingManager.asyncActions
-          }, this.store, this.asyncActions)
+          callListeners(this.#messagingManager.listeners, this.store, this.asyncActions)
         }
       }
     }
@@ -97,7 +95,7 @@ class SynchemyClient {
     this.#messagingManager.client.onclose = event => {
       if (event.code !== 1000) {
         // Error code 1000 means that the connection was closed normally.
-        if (!navigator.onLine) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
           throw new Error('You are offline. Please connect to the Internet and try again.')
         }
       }
@@ -108,7 +106,7 @@ class SynchemyClient {
     const store = this.store
     const loaders = this.asyncActions
     const prevState = mapStateToProps(store, loaders)
-    const subscribeCallback = (prevState, changes, store, loaders, listener) => {
+    const subscribeCallback = (prevState, store, loaders, listener) => {
       if (listener.shouldUpdate) {
         const newState = mapStateToProps(store, loaders)
         if (listener.shouldUpdate(prevState, newState)) {
@@ -118,9 +116,8 @@ class SynchemyClient {
         return
       }
 
-      const newChanges = mapStateToProps(changes.store, changes.loaders)
-      if (containsChange(newChanges, prevState)) {
-        const newState = mapStateToProps(store, loaders)
+      const newState = mapStateToProps(store, loaders)
+      if (containsChange(newState, prevState)) {
         listener.prevState = newState
         return debouncePerAnimationFrame(callback, newState)
       }
@@ -171,16 +168,11 @@ class SynchemyClient {
       const newState = state(this.store)
       this.store = { ...this.store, ...newState }
 
-      callListeners(this.#messagingManager.listeners, {
-        store: newState, loaders: this.#messagingManager.asyncActions
-      }, this.store, this.asyncActions)
+      callListeners(this.#messagingManager.listeners, this.store, this.asyncActions)
     } else {
       this.store = { ...this.store, ...state }
 
-      callListeners(this.#messagingManager.listeners, {
-        store: state,
-        loaders: this.#messagingManager.asyncActions
-      }, this.store, this.asyncActions)
+      callListeners(this.#messagingManager.listeners, this.store, this.asyncActions)
     }
   }
 
@@ -206,7 +198,6 @@ class SynchemyClient {
       return `${word.substring(0, 1).toUpperCase()}${word.substring(1).toLowerCase()}`
     }).join('')
 
-    this.#messagingManager.asyncActions[methodName] = {}
     this.asyncActions[methodName] = {
       name: actionName,
       loading: false
@@ -217,27 +208,13 @@ class SynchemyClient {
         ...this.asyncActions[methodName],
         loading: true
       }
-      const changes = {
-        store: {},
-        loaders: {
-          ...this.#messagingManager.asyncActions,
-          [methodName]: { loading: true }
-        }
-      }
-      callListeners(this.#messagingManager.listeners, changes, this.store, this.asyncActions)
+      callListeners(this.#messagingManager.listeners, this.store, this.asyncActions)
       await newAction(...args)
       this.asyncActions[methodName] = {
         ...this.asyncActions[methodName],
         loading: false
       }
-      const newChanges = {
-        store: {},
-        loaders: {
-          ...this.#messagingManager.asyncActions,
-          [methodName]: { loading: false }
-        }
-      }
-      callListeners(this.#messagingManager.listeners, newChanges, this.store, this.asyncActions)
+      callListeners(this.#messagingManager.listeners, this.store, this.asyncActions)
     }
   }
 }

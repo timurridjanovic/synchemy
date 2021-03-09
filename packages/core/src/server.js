@@ -1,6 +1,17 @@
 import WebSocket from 'ws'
 import { v4 as uuid } from 'uuid'
 
+const paramTypeErrors = (functionName, types, returnType) => {
+  return `${functionName} takes these param types: (${types.join(', ')}) => ${returnType}.`
+}
+
+const getConstructorParamType = () => {
+  return 'oneOf(' +
+    '{ server: NodeHTTPServer, app?: ExpressApp, port?: Number }, ' +
+    '{ port: Number }' +
+  ')'
+}
+
 class SynchemyServer {
   sockets = []
   #messagingManager = {
@@ -10,9 +21,18 @@ class SynchemyServer {
     onSocketDisconnectionCallback: null
   }
 
-  constructor ({ app, server, port, options = {} }) {
-    if (!server) {
-      throw new Error('The SynchemyServer constructor needs a server property.')
+  constructor (args) {
+    if (!args) {
+      throw new Error(paramTypeErrors('SynchemyServer constructor', [getConstructorParamType()], 'void'))
+    }
+
+    const { app, server, port, options = {} } = args
+    if (!server && !port) {
+      throw new Error(paramTypeErrors('SynchemyServer constructor', [getConstructorParamType()], 'void'))
+    }
+
+    if (app && typeof app !== 'function') {
+      throw new Error('The app property needs to be an Expressjs app.')
     }
 
     const config = port ? { port } : { server }
@@ -21,7 +41,9 @@ class SynchemyServer {
       ...options
     })
 
-    server.on('request', app)
+    if (server && app) {
+      server.on('request', app)
+    }
 
     ws.on('connection', socket => {
       const socketId = uuid()
@@ -57,14 +79,26 @@ class SynchemyServer {
   }
 
   onSocketConnection (func) {
+    if (typeof func !== 'function') {
+      throw new Error(paramTypeErrors('onSocketConnection', ['function'], 'void'))
+    }
+
     this.#messagingManager.onSocketConnectionCallback = func
   }
 
   onSocketDisconnection (func) {
+    if (typeof func !== 'function') {
+      throw new Error(paramTypeErrors('onSocketConnection', ['function'], 'void'))
+    }
+
     this.#messagingManager.onSocketDisconnectionCallback = func
   }
 
   onMessage (func) {
+    if (typeof func !== 'function') {
+      throw new Error(paramTypeErrors('onSocketConnection', ['function'], 'void'))
+    }
+
     this.#messagingManager.onMessageCallback = (data, socketId) => {
       return new Promise((resolve, reject) => {
         const { messageId, message } = data

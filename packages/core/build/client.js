@@ -25,6 +25,8 @@ var _classPrivateFieldGet4 = _interopRequireDefault(require("@babel/runtime/help
 
 var _uuid = require("uuid");
 
+var _isomorphicWs = _interopRequireDefault(require("isomorphic-ws"));
+
 var _lodash = require("lodash");
 
 function _toPropertyKey(arg) { var key = _toPrimitive(arg, "string"); return _typeof(key) === "symbol" ? key : String(key); }
@@ -35,9 +37,9 @@ function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (O
 
 function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { (0, _defineProperty2["default"])(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
 
-var callListeners = function callListeners(listeners, changes, store, loaders) {
+var callListeners = function callListeners(listeners, store, loaders) {
   Object.values(listeners).forEach(function (listener) {
-    listener.subscribeCallback(listener.prevState, changes, store, loaders, listener);
+    listener.subscribeCallback(listener.prevState, store, loaders, listener);
   });
 };
 
@@ -45,7 +47,7 @@ var containsChange = function containsChange(changes, prevState) {
   for (var _i = 0, _Object$entries = Object.entries(changes); _i < _Object$entries.length; _i++) {
     var change = _Object$entries[_i];
 
-    if (change[1] !== undefined && prevState[change[0]] !== change[1]) {
+    if (prevState[change[0]] !== change[1]) {
       return true;
     }
   }
@@ -54,15 +56,19 @@ var containsChange = function containsChange(changes, prevState) {
 };
 
 var debouncePerAnimationFrame = function debouncePerAnimationFrame(func, params) {
-  // If there's a pending function call, cancel it
-  if (func.debounce) {
-    window.cancelAnimationFrame(func.debounce);
-  } // Setup the new function call to run at the next animation frame
+  if (typeof window !== 'undefined') {
+    // If there's a pending function call, cancel it
+    if (func.debounce) {
+      window.cancelAnimationFrame(func.debounce);
+    } // Setup the new function call to run at the next animation frame
 
 
-  func.debounce = window.requestAnimationFrame(function () {
+    func.debounce = window.requestAnimationFrame(function () {
+      func(params);
+    });
+  } else {
     func(params);
-  });
+  }
 };
 
 var isOpen = function isOpen(ws) {
@@ -94,8 +100,7 @@ var SynchemyClient = /*#__PURE__*/function () {
         host: null,
         onMessage: null,
         listeners: {},
-        queue: [],
-        asyncActions: {}
+        queue: []
       }
     });
 
@@ -118,7 +123,7 @@ var SynchemyClient = /*#__PURE__*/function () {
 
       var host = _ref2.host;
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).host = host;
-      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client = new WebSocket(host);
+      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client = new _isomorphicWs["default"](host);
 
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onmessage = function (_ref3) {
         var data = _ref3.data;
@@ -139,10 +144,7 @@ var SynchemyClient = /*#__PURE__*/function () {
 
           if (updateStore !== false) {
             _this2.store = _objectSpread(_objectSpread({}, _this2.store), newResult);
-            callListeners((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).listeners, {
-              store: newResult,
-              loaders: (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).asyncActions
-            }, _this2.store, _this2.asyncActions);
+            callListeners((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).listeners, _this2.store, _this2.asyncActions);
           }
 
           resolve(newResult);
@@ -154,10 +156,7 @@ var SynchemyClient = /*#__PURE__*/function () {
             (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).onMessage(message);
           } else {
             _this2.store = _objectSpread(_objectSpread({}, _this2.store), message);
-            callListeners((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).listeners, {
-              store: message,
-              loaders: (0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).asyncActions
-            }, _this2.store, _this2.asyncActions);
+            callListeners((0, _classPrivateFieldGet4["default"])(_this2, _messagingManager).listeners, _this2.store, _this2.asyncActions);
           }
         }
       };
@@ -165,7 +164,7 @@ var SynchemyClient = /*#__PURE__*/function () {
       (0, _classPrivateFieldGet4["default"])(this, _messagingManager).client.onclose = function (event) {
         if (event.code !== 1000) {
           // Error code 1000 means that the connection was closed normally.
-          if (!navigator.onLine) {
+          if (typeof navigator !== 'undefined' && !navigator.onLine) {
             throw new Error('You are offline. Please connect to the Internet and try again.');
           }
         }
@@ -183,25 +182,23 @@ var SynchemyClient = /*#__PURE__*/function () {
       var loaders = this.asyncActions;
       var prevState = mapStateToProps(store, loaders);
 
-      var subscribeCallback = function subscribeCallback(prevState, changes, store, loaders, listener) {
+      var subscribeCallback = function subscribeCallback(prevState, store, loaders, listener) {
         if (listener.shouldUpdate) {
-          var newState = mapStateToProps(store, loaders);
+          var _newState = mapStateToProps(store, loaders);
 
-          if (listener.shouldUpdate(prevState, newState)) {
-            listener.prevState = newState;
-            return debouncePerAnimationFrame(callback, newState);
+          if (listener.shouldUpdate(prevState, _newState)) {
+            listener.prevState = _newState;
+            return debouncePerAnimationFrame(callback, _newState);
           }
 
           return;
         }
 
-        var newChanges = mapStateToProps(changes.store, changes.loaders);
+        var newState = mapStateToProps(store, loaders);
 
-        if (containsChange(newChanges, prevState)) {
-          var _newState = mapStateToProps(store, loaders);
-
-          listener.prevState = _newState;
-          return debouncePerAnimationFrame(callback, _newState);
+        if (containsChange(newState, prevState)) {
+          listener.prevState = newState;
+          return debouncePerAnimationFrame(callback, newState);
         }
       };
 
@@ -273,16 +270,10 @@ var SynchemyClient = /*#__PURE__*/function () {
       if (typeof state === 'function') {
         var newState = state(this.store);
         this.store = _objectSpread(_objectSpread({}, this.store), newState);
-        callListeners((0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners, {
-          store: newState,
-          loaders: (0, _classPrivateFieldGet4["default"])(this, _messagingManager).asyncActions
-        }, this.store, this.asyncActions);
+        callListeners((0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners, this.store, this.asyncActions);
       } else {
         this.store = _objectSpread(_objectSpread({}, this.store), state);
-        callListeners((0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners, {
-          store: state,
-          loaders: (0, _classPrivateFieldGet4["default"])(this, _messagingManager).asyncActions
-        }, this.store, this.asyncActions);
+        callListeners((0, _classPrivateFieldGet4["default"])(this, _messagingManager).listeners, this.store, this.asyncActions);
       }
     }
   }, {
@@ -312,15 +303,12 @@ var SynchemyClient = /*#__PURE__*/function () {
 
         return "".concat(word.substring(0, 1).toUpperCase()).concat(word.substring(1).toLowerCase());
       }).join('');
-      (0, _classPrivateFieldGet4["default"])(this, _messagingManager).asyncActions[methodName] = {};
       this.asyncActions[methodName] = {
         name: actionName,
         loading: false
       };
       this.actions[methodName] = /*#__PURE__*/(0, _asyncToGenerator2["default"])( /*#__PURE__*/_regenerator["default"].mark(function _callee() {
-        var changes,
-            newChanges,
-            _args = arguments;
+        var _args = arguments;
         return _regenerator["default"].wrap(function _callee$(_context) {
           while (1) {
             switch (_context.prev = _context.next) {
@@ -328,29 +316,17 @@ var SynchemyClient = /*#__PURE__*/function () {
                 _this4.asyncActions[methodName] = _objectSpread(_objectSpread({}, _this4.asyncActions[methodName]), {}, {
                   loading: true
                 });
-                changes = {
-                  store: {},
-                  loaders: _objectSpread(_objectSpread({}, (0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).asyncActions), {}, (0, _defineProperty2["default"])({}, methodName, {
-                    loading: true
-                  }))
-                };
-                callListeners((0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).listeners, changes, _this4.store, _this4.asyncActions);
-                _context.next = 5;
+                callListeners((0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).listeners, _this4.store, _this4.asyncActions);
+                _context.next = 4;
                 return newAction.apply(void 0, _args);
 
-              case 5:
+              case 4:
                 _this4.asyncActions[methodName] = _objectSpread(_objectSpread({}, _this4.asyncActions[methodName]), {}, {
                   loading: false
                 });
-                newChanges = {
-                  store: {},
-                  loaders: _objectSpread(_objectSpread({}, (0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).asyncActions), {}, (0, _defineProperty2["default"])({}, methodName, {
-                    loading: false
-                  }))
-                };
-                callListeners((0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).listeners, newChanges, _this4.store, _this4.asyncActions);
+                callListeners((0, _classPrivateFieldGet4["default"])(_this4, _messagingManager).listeners, _this4.store, _this4.asyncActions);
 
-              case 8:
+              case 6:
               case "end":
                 return _context.stop();
             }
