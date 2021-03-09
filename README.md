@@ -150,7 +150,7 @@ export default App;
 Rerenders are based on the properties that you return from the useStore callback.
 However, only a shallow comparison is made between the previous state and the next
 state to determine whether a change has occured. If you want more customization on whether
-an update should occur, you can provide a shouldUpdate callback.
+an update should occur, you can provide a shouldUpdate function.
 
 ```js
 const store = useStore(synchemy)((state, loaders) => {
@@ -164,6 +164,19 @@ const store = useStore(synchemy)((state, loaders) => {
 
   return false
 });
+```
+
+If not using react, you can achieve the same thing by using `synchemy.subscribe`.
+
+```js
+synchemy.subscribe((state, loaders) => {
+  return {
+    todos: state.todos,
+    todosLoading: loaders.getTodos.loading
+  }
+}, store => {
+  console.log('NEW STORE: ', store)
+}) // you can add a shouldUpdate function as a 3rd param.
 ```
 
 # SynchemyServer setup

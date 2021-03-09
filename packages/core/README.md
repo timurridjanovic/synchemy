@@ -3,7 +3,10 @@
 ## Install
 `npm install @synchemy/core --save`
 
-## Package version
+## Install synchemy useStore hook to use with react
+`npm install @synchemy/use-store --save`
+
+## Package versions
 
 | Name | Latest Version |
 | --- | --- |
@@ -98,6 +101,81 @@ const synchemy = new SynchemyClient({
     }
   }
 })
+```
+
+# useStore react hook setup (if used with react)
+
+The useStore hook is used in combination with react. The useStore 
+callback will be invoked anytime there is a store change or a loading flag
+change. Your component will rerender only if the changes are in any
+of the properties that you return from the callback.
+
+```js
+// app.js
+import React, { useEffect } from 'react';
+import synchemy from './synchemy';
+import useStore from '@synchemy/use-store'
+
+const App = () => {
+  const store = useStore(synchemy)((state, loaders) => {
+    return {
+      todos: state.todos,
+      getTodosLoading: loaders.getTodos.loading
+    }
+  });
+
+  useEffect(() => {
+    synchemy.actions.getTodos()
+  }, []);
+
+  return <div>
+    TODOS
+    {store.getTodosLoading &&
+      <div>loading...</div>
+    }
+    {!store.getTodosLoading &&
+      <div>
+        {store.todos.map(todo => {
+          return <Todo key={todo.id} {...todo} />
+        })}
+      </div>
+    }
+  </div>;
+}
+
+export default App;
+```
+
+Rerenders are based on the properties that you return from the useStore callback.
+However, only a shallow comparison is made between the previous state and the next
+state to determine whether a change has occured. If you want more customization on whether
+an update should occur, you can provide a shouldUpdate function.
+
+```js
+const store = useStore(synchemy)((state, loaders) => {
+  return {
+    todos: state.todos,
+  }
+}, (prevState, nextState) => {
+  if (prevState.todos.length !== nextState.todos.length) {
+    return true
+  }
+
+  return false
+});
+```
+
+If not using react, you can achieve the same thing by using `synchemy.subscribe`.
+
+```js
+synchemy.subscribe((state, loaders) => {
+  return {
+    todos: state.todos,
+    todosLoading: loaders.getTodos.loading
+  }
+}, store => {
+  console.log('NEW STORE: ', store)
+}) // you can add a shouldUpdate function as a 3rd param.
 ```
 
 # SynchemyServer setup
