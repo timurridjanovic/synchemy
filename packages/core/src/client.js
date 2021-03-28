@@ -4,6 +4,7 @@ import { debounce, throttle } from 'lodash'
 import { raf, caf } from './requestAnimationFrame'
 
 const callListeners = (listeners, store, loaders) => {
+  console.log('HAHA ALLO')
   Object.values(listeners).forEach(listener => {
     listener.subscribeCallback(listener.prevState, store, loaders, listener)
   })
